@@ -1,0 +1,132 @@
+{
+  "elements": {
+    "addToCartBtn": {
+      "events": [
+        "click"
+      ],
+      "file": "index.html",
+      "kind": "action",
+      "line": 28,
+      "role": "Btn",
+      "selector": "#add-to-cart-btn",
+      "tag": "button"
+    },
+    "cartCountDisplay": {
+      "file": "cart.js",
+      "kind": "component",
+      "line": 33,
+      "read_property": "textContent",
+      "role": "Display",
+      "selector": "cartCount",
+      "tag": "div"
+    },
+    "cartListDisplay": {
+      "file": "cart.js",
+      "kind": "component",
+      "line": 35,
+      "read_property": "innerHTML",
+      "role": "List",
+      "selector": "cartList",
+      "tag": "div"
+    },
+    "cartTotalDisplay": {
+      "file": "cart.js",
+      "kind": "component",
+      "line": 34,
+      "read_property": "textContent",
+      "role": "Display",
+      "selector": "cartTotal",
+      "tag": "div"
+    },
+    "checkoutBtn": {
+      "events": [
+        "click"
+      ],
+      "file": "index.html",
+      "kind": "action",
+      "line": 35,
+      "role": "Btn",
+      "selector": "#checkout-btn",
+      "tag": "button"
+    },
+    "errorDisplay": {
+      "file": "cart.js",
+      "kind": "component",
+      "line": 36,
+      "read_property": "textContent",
+      "role": "Error",
+      "selector": "errorDisplay",
+      "tag": "div"
+    },
+    "qtyInput": {
+      "events": [
+        "input"
+      ],
+      "file": "index.html",
+      "kind": "action",
+      "line": 26,
+      "role": "Input",
+      "selector": "#qty-input",
+      "tag": "input"
+    },
+    "searchBtn": {
+      "events": [
+        "click"
+      ],
+      "file": "index.html",
+      "kind": "action",
+      "line": 42,
+      "role": "Btn",
+      "selector": "#search-btn",
+      "tag": "button"
+    },
+    "searchInput": {
+      "events": [
+        "input"
+      ],
+      "file": "index.html",
+      "kind": "action",
+      "line": 41,
+      "role": "Input",
+      "selector": "#search-input",
+      "tag": "input"
+    },
+    "searchResultsList": {
+      "file": "search.js",
+      "kind": "component",
+      "line": 20,
+      "read_property": "innerHTML",
+      "role": "List",
+      "selector": "searchResults",
+      "tag": "div"
+    }
+  },
+  "apis": {
+    "cartApi": {
+      "endpoint": "/api/cart",
+      "file": "cart.js",
+      "line": 18,
+      "method": "GET"
+    },
+    "checkoutApi": {
+      "endpoint": "/api/checkout",
+      "file": "cart.js",
+      "line": 47,
+      "method": "POST"
+    }
+  },
+  "error_handlers": [
+    {
+      "file": "search.js",
+      "line": 22
+    },
+    {
+      "file": "cart.js",
+      "line": 38
+    },
+    {
+      "file": "cart.js",
+      "line": 65
+    }
+  ]
+}

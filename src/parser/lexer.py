@@ -1,80 +1,77 @@
 """
 Lexer for the constraint language.
-
-Converts a raw constraint string into a flat list of tokens.
-All reserved words are case-sensitive.
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import Enum
 from typing import List
 
 
 class TokenKind(Enum):
-    # ── Reserved words ──────────────────────────────────────────────────────
-    P        = "P"
-    A        = "A"
-    W        = "w"
-    R        = "r"
-    F        = "f"
-    CALL     = "call"
-    SEQ      = "seq"
-    LEN      = "len"
-    ERROR    = "error"
-    STATUS   = "status"
-    STATIC   = "static"
-    XOR      = "XOR"
-    IN       = "in"
-    NULL     = "null"
-    # ── Literals ─────────────────────────────────────────────────────────────
-    NUMBER   = "NUMBER"
-    STRING   = "STRING"
+    P = "P"
+    A = "A"
+    W = "w"
+    R = "r"
+    F = "f"
+    CALL = "call"
+    LEN = "len"
+    STATUS = "status"
+    NO_LITERAL = "no_literal"
+    NO_HIDDEN_PARAM = "no_hidden_param"
+    HIDDEN_ERRORS = "hidden_errors"
+    XOR = "XOR"
+    NULL = "null"
+    D = "D"
+    API = "api"
+
+    NUMBER = "NUMBER"
+    STRING = "STRING"
     IDENTIFIER = "IDENTIFIER"
-    # ── Punctuation ──────────────────────────────────────────────────────────
-    LPAREN   = "("
-    RPAREN   = ")"
-    PIPE     = "|"
-    COMMA    = ","
-    EQUALS   = "="
-    COLON    = ":"
-    # ── Logical / negation ───────────────────────────────────────────────────
-    NOT      = "NOT"    # ¬ or !  (prefix negation only)
-    AND      = "AND"    # ∧ or &&
-    # ── Arithmetic ───────────────────────────────────────────────────────────
-    PLUS     = "+"
-    MINUS    = "-"
-    TIMES    = "*"
-    DIVIDE   = "/"
-    # ── Comparison ───────────────────────────────────────────────────────────
-    LT       = "<"
-    GT       = ">"
-    LTE      = "<="
-    GTE      = ">="
-    EQ       = "=="
-    NEQ      = "!="
-    # ── Special ──────────────────────────────────────────────────────────────
-    LAST     = "_last"  # value_expr modifier
-    EOF      = "EOF"
+
+    LPAREN = "("
+    RPAREN = ")"
+    LBRACKET = "["
+    RBRACKET = "]"
+    PIPE = "|"
+    COMMA = ","
+    EQUALS = "="
+
+    NOT = "NOT"
+    AND = "AND"
+    IN = "IN"
+
+    PLUS = "+"
+    MINUS = "-"
+
+    LT = "<"
+    GT = ">"
+    LTE = "<="
+    GTE = ">="
+    NEQ = "!="
+
+    LAST = "_last"
+    EOF = "EOF"
 
 
-# Words that map to a specific TokenKind instead of IDENTIFIER.
 _KEYWORDS: dict[str, TokenKind] = {
-    "P":      TokenKind.P,
-    "A":      TokenKind.A,
-    "w":      TokenKind.W,
-    "r":      TokenKind.R,
-    "f":      TokenKind.F,
-    "call":   TokenKind.CALL,
-    "seq":    TokenKind.SEQ,
-    "len":    TokenKind.LEN,
-    "error":  TokenKind.ERROR,
+    "P": TokenKind.P,
+    "A": TokenKind.A,
+    "w": TokenKind.W,
+    "r": TokenKind.R,
+    "f": TokenKind.F,
+    "call": TokenKind.CALL,
+    "len": TokenKind.LEN,
     "status": TokenKind.STATUS,
-    "static": TokenKind.STATIC,
-    "XOR":    TokenKind.XOR,
-    "in":     TokenKind.IN,
-    "null":   TokenKind.NULL,
-    "_last":  TokenKind.LAST,
+    "no_literal": TokenKind.NO_LITERAL,
+    "no_hidden_param": TokenKind.NO_HIDDEN_PARAM,
+    "hidden_errors": TokenKind.HIDDEN_ERRORS,
+    "XOR": TokenKind.XOR,
+    "null": TokenKind.NULL,
+    "_last": TokenKind.LAST,
+    "D": TokenKind.D,
+    "api": TokenKind.API,
 }
 
 
@@ -82,10 +79,7 @@ _KEYWORDS: dict[str, TokenKind] = {
 class Token:
     kind: TokenKind
     value: str
-    pos: int   # byte offset in the source string (for error messages)
-
-    def __repr__(self) -> str:
-        return f"Token({self.kind.name}, {self.value!r}, pos={self.pos})"
+    pos: int
 
 
 class LexerError(Exception):
@@ -95,27 +89,19 @@ class LexerError(Exception):
 
 
 class Lexer:
-    """Tokenises a single constraint string."""
-
     def __init__(self, source: str) -> None:
         self._src = source
         self._pos = 0
         self._tokens: List[Token] = []
 
     def tokenize(self) -> List[Token]:
-        """Return the full token list, including a trailing EOF token."""
         while self._pos < len(self._src):
             self._skip_whitespace()
             if self._pos >= len(self._src):
                 break
             self._scan_one()
-
         self._tokens.append(Token(TokenKind.EOF, "", self._pos))
         return self._tokens
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
 
     def _ch(self) -> str:
         return self._src[self._pos]
@@ -134,74 +120,65 @@ class Lexer:
     def _scan_one(self) -> None:
         start = self._pos
         ch = self._ch()
-
-        # ── Unicode negation ────────────────────────────────────────────────
-        if ch == "¬":
-            self._emit(TokenKind.NOT, "¬", start)
-            self._pos += 1
-            return
-
-        # ── Unicode AND ────────────────────────────────────────────────────
-        if ch == "∧":
-            self._emit(TokenKind.AND, "∧", start)
-            self._pos += 1
-            return
-
-        # ── Two-character tokens ────────────────────────────────────────────
         two = self._src[self._pos : self._pos + 2]
-        if two == "&&":
-            self._emit(TokenKind.AND, "&&", start)
-            self._pos += 2
+
+        if ch == "¬":
+            self._emit(TokenKind.NOT, ch, start)
+            self._pos += 1
             return
+        if ch == "∧":
+            self._emit(TokenKind.AND, ch, start)
+            self._pos += 1
+            return
+        if ch == "∈":
+            self._emit(TokenKind.IN, ch, start)
+            self._pos += 1
+            return
+
         if two == "<=":
-            self._emit(TokenKind.LTE, "<=", start)
+            self._emit(TokenKind.LTE, two, start)
             self._pos += 2
             return
         if two == ">=":
-            self._emit(TokenKind.GTE, ">=", start)
-            self._pos += 2
-            return
-        if two == "==":
-            self._emit(TokenKind.EQ, "==", start)
+            self._emit(TokenKind.GTE, two, start)
             self._pos += 2
             return
         if two == "!=":
-            self._emit(TokenKind.NEQ, "!=", start)
+            self._emit(TokenKind.NEQ, two, start)
+            self._pos += 2
+            return
+        if two == "&&":
+            self._emit(TokenKind.AND, two, start)
             self._pos += 2
             return
 
-        # ── Single-character tokens ─────────────────────────────────────────
-        _single: dict[str, TokenKind] = {
+        single = {
             "(": TokenKind.LPAREN,
             ")": TokenKind.RPAREN,
+            "[": TokenKind.LBRACKET,
+            "]": TokenKind.RBRACKET,
             "|": TokenKind.PIPE,
             ",": TokenKind.COMMA,
             "=": TokenKind.EQUALS,
-            ":": TokenKind.COLON,
             "+": TokenKind.PLUS,
             "-": TokenKind.MINUS,
-            "*": TokenKind.TIMES,
-            "/": TokenKind.DIVIDE,
             "<": TokenKind.LT,
             ">": TokenKind.GT,
-            "!": TokenKind.NOT,   # bare ! (not followed by =, handled above)
+            "!": TokenKind.NOT,
         }
-        if ch in _single:
-            self._emit(_single[ch], ch, start)
+        if ch in single:
+            self._emit(single[ch], ch, start)
             self._pos += 1
             return
 
-        # ── Numeric literal ─────────────────────────────────────────────────
         if ch.isdigit() or (ch == "." and self._peek().isdigit()):
             self._scan_number(start)
             return
 
-        # ── String literal ──────────────────────────────────────────────────
         if ch == '"':
             self._scan_string(start)
             return
 
-        # ── Identifier or keyword (includes _last) ──────────────────────────
         if ch.isalpha() or ch == "_":
             self._scan_word(start)
             return
@@ -222,13 +199,12 @@ class Lexer:
         self._emit(TokenKind.NUMBER, self._src[start : self._pos], start)
 
     def _scan_string(self, start: int) -> None:
-        self._pos += 1  # consume opening "
+        self._pos += 1
         while self._pos < len(self._src) and self._src[self._pos] != '"':
             self._pos += 1
         if self._pos >= len(self._src):
             raise LexerError("Unterminated string literal", start)
-        self._pos += 1  # consume closing "
-        # value excludes the quotes
+        self._pos += 1
         self._emit(TokenKind.STRING, self._src[start + 1 : self._pos - 1], start)
 
     def _scan_word(self, start: int) -> None:
@@ -242,5 +218,4 @@ class Lexer:
 
 
 def tokenize(source: str) -> List[Token]:
-    """Convenience function — tokenise *source* and return the token list."""
     return Lexer(source).tokenize()

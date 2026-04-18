@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Constraint Parser</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- Header -->
+  <header class="page-header">
+    <h1>Constraint <span>Verification</span></h1>
+    <p>Parse constraints and manage the element mapping for your target app.</p>
+  </header>
+
+  <!-- Tab nav -->
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="parser">Parser</button>
+    <button class="tab-btn" data-tab="mapping">Element Mapping</button>
+  </nav>
+
+  <!-- ── Parser tab ── -->
+  <div id="tab-parser" class="tab-panel">
+
+  <!-- Input card -->
+  <div class="card">
+    <div class="card-title">Constraint</div>
+
+    <div class="input-row">
+      <input
+        id="constraint-input"
+        class="constraint-input"
+        type="text"
+        placeholder='e.g. P(w(cartDisplay) | A(addBtn)) = 1'
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="parse-btn" class="btn-parse">Parse</button>
+    </div>
+
+    <div style="margin-top:1rem;">
+      <div class="examples-label">Quick examples — click to fill:</div>
+      <div id="examples-container" class="examples"></div>
+    </div>
+
+    <!-- Element reference -->
+    <div id="element-ref" class="element-ref hidden">
+      <div class="ref-divider"></div>
+      <div class="ref-row">
+        <span class="ref-label">Elements</span>
+        <div id="ref-elements" class="ref-chips"></div>
+      </div>
+      <div id="ref-apis-row" class="ref-row hidden">
+        <span class="ref-label">APIs</span>
+        <div id="ref-apis" class="ref-chips"></div>
+      </div>
+    </div>
+
+    <div id="no-mapping-hint" class="no-mapping-hint hidden">
+      No element mapping yet —
+      <button class="hint-link" id="go-to-mapping-btn">generate one in the Element Mapping tab</button>
+      before writing constraints.
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-box" class="error-box hidden"></div>
+
+  <!-- Validation error -->
+  <div id="validation-box" class="validation-box hidden"></div>
+
+  <!-- Results (hidden until first successful parse) -->
+  <div id="results" class="hidden" style="display:flex;flex-direction:column;gap:1.5rem;">
+
+    <!-- Step 1: Tokens -->
+    <div id="token-card" class="card">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <h2>Lexer — Tokens</h2>
+      </div>
+      <table class="token-table">
+        <thead>
+          <tr>
+            <th>Kind</th>
+            <th>Value</th>
+            <th>Position</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Step 2: AST -->
+    <div id="ast-card" class="card">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <h2>Parser — Abstract Syntax Tree</h2>
+      </div>
+      <div class="ast-root"></div>
+    </div>
+
+    <!-- Step 3: Constraint type -->
+    <div id="type-card" class="card">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <h2>Classifier — Constraint Type</h2>
+      </div>
+      <div class="type-body"></div>
+    </div>
+
+  </div><!-- /results -->
+
+  </div><!-- /tab-parser -->
+
+  <!-- ── Mapping tab ── -->
+  <div id="tab-mapping" class="tab-panel hidden">
+
+    <!-- Step 1: scan -->
+    <div class="card">
+      <div class="card-title">Element Mapping</div>
+      <p class="mapping-intro">
+        Scan a CodeQL database to discover every UI element, API call, and error handler
+        in your app. The LLM will generate a draft mapping — you can rename elements
+        before approving.
+      </p>
+
+      <div class="input-row" style="margin-top:1rem;">
+        <input
+          id="db-path-input"
+          class="constraint-input"
+          type="text"
+          value="./codeql-db"
+          placeholder="Path to CodeQL database"
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <button id="scan-btn" class="btn-parse">Scan &amp; Generate</button>
+      </div>
+    </div>
+
+    <!-- Progress log -->
+    <div id="scan-log-card" class="card hidden">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <h2>Scan Progress</h2>
+      </div>
+      <div id="scan-log" class="scan-log"></div>
+    </div>
+
+    <!-- Draft mapping -->
+    <div id="mapping-result-card" class="card hidden">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <h2>Draft Mapping — Review &amp; Rename</h2>
+      </div>
+      <p class="mapping-intro" style="margin-bottom:1rem;">
+        Edit the <strong>Constraint Name</strong> column — this is the identifier you will
+        use in constraints (e.g. <code>addToCartBtn</code>). Other columns are read-only.
+      </p>
+
+      <div class="mapping-section-label">Elements</div>
+      <div class="table-scroll">
+        <table class="mapping-table" id="elements-table">
+          <thead>
+            <tr>
+              <th>Constraint Name</th>
+              <th>Selector</th>
+              <th>Tag</th>
+              <th>Kind</th>
+              <th>Events / Read property</th>
+              <th>File</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="mapping-section-label" style="margin-top:1.5rem;">API Endpoints</div>
+      <div class="table-scroll">
+        <table class="mapping-table" id="apis-table">
+          <thead>
+            <tr>
+              <th>Constraint Name</th>
+              <th>Endpoint</th>
+              <th>Method</th>
+              <th>File</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="mapping-section-label" style="margin-top:1.5rem;">Error Handlers</div>
+      <div class="table-scroll">
+        <table class="mapping-table" id="errors-table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Line</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:1.5rem;display:flex;gap:.75rem;align-items:center;">
+        <button id="approve-btn" class="btn-parse">Approve &amp; Save</button>
+        <span id="approve-status" class="approve-status"></span>
+      </div>
+    </div>
+
+    <!-- Mapping error -->
+    <div id="mapping-error-box" class="error-box hidden"></div>
+
+  </div><!-- /tab-mapping -->
+
+</div><!-- /page-wrapper -->
+
+<script src="/static/js/main.js"></script>
+<script src="/static/js/mapping.js"></script>
+</body>
+</html>

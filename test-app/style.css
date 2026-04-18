@@ -1,0 +1,11 @@
+body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+#cart-summary { font-size: 0.9rem; color: #555; }
+main { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+.search-panel { grid-column: 1 / -1; }
+.product-card, .cart-panel { border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; }
+input[type="number"], input[type="text"] { border: 1px solid #ccc; border-radius: 4px; padding: 0.4rem 0.6rem; margin: 0.5rem 0; }
+button { background: #0070f3; color: white; border: none; border-radius: 4px; padding: 0.5rem 1rem; cursor: pointer; margin-top: 0.5rem; }
+button:hover { background: #005bb5; }
+#error-display { color: #c00; margin-top: 0.75rem; font-size: 0.9rem; }
+.cart-item, .result-item { padding: 0.3rem 0; border-bottom: 1px solid #eee; font-size: 0.9rem; }

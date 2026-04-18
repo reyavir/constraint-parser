@@ -65,6 +65,24 @@ class ReadExpr:
 
 
 @dataclass(frozen=True)
+class LenExpr:
+    """len(r(element|api_result))"""
+    arg: ReadExpr
+
+    def __str__(self) -> str:
+        return f"len({self.arg})"
+
+
+@dataclass(frozen=True)
+class StatusExpr:
+    """status(api)"""
+    api_ref: str = "api"
+
+    def __str__(self) -> str:
+        return f"status({self.api_ref})"
+
+
+@dataclass(frozen=True)
 class FuncExpr:
     """f(value_expr) — apply a generic function to an expression."""
     arg: Any  # value_expr node
@@ -104,8 +122,8 @@ class WriteEvent:
 class CompoundWriteEvent:
     """write_event ∧ write_event  (op='AND')  or  write_event XOR write_event  (op='XOR')."""
     op: str          # 'AND' | 'XOR'
-    left: WriteEvent
-    right: WriteEvent
+    left: Any
+    right: Any
 
     def __str__(self) -> str:
         sym = "∧" if self.op == "AND" else "XOR"
@@ -150,13 +168,26 @@ class ApiCallEvent:
 
 @dataclass(frozen=True)
 class Guard:
-    """r(element) op literal  — conditions the action on a runtime check."""
-    element: ElementRef
-    op: str    # '=' | '!=' | 'in'
-    value: Any  # literal node or set-name identifier string
+    """Predicate constraint used by event/condition atoms."""
+    left: Any
+    op: str
+    right: Any
 
     def __str__(self) -> str:
-        return f"r({self.element}) {self.op} {self.value}"
+        return f"{self.left} {self.op} {self.right}"
+
+
+@dataclass(frozen=True)
+class RangeExpr:
+    """[low, high] inclusive range or D distribution sentinel."""
+    low: Optional[float] = None
+    high: Optional[float] = None
+    distribution: Optional[str] = None
+
+    def __str__(self) -> str:
+        if self.distribution is not None:
+            return self.distribution
+        return f"[{self.low}, {self.high}]"
 
 
 # ---------------------------------------------------------------------------
@@ -176,6 +207,17 @@ class ActionCondition:
         if self.guard is not None:
             return f"{base}, {self.guard}"
         return base
+
+
+@dataclass(frozen=True)
+class CompoundCondition:
+    """condition_atom ∧ condition_atom"""
+    op: str
+    left: Any
+    right: Any
+
+    def __str__(self) -> str:
+        return f"{self.left} {self.op} {self.right}"
 
 
 @dataclass(frozen=True)
@@ -207,19 +249,22 @@ class ProbabilisticConstraint:
     """P(event | condition) = probability"""
     event: Any              # any Event node
     condition: Any          # any Condition node
+    probability_op: str
     probability: float
     raw: str = field(default="", compare=False)
 
     def __str__(self) -> str:
-        return f"P({self.event} | {self.condition}) = {self.probability}"
+        return f"P({self.event} | {self.condition}) {self.probability_op} {self.probability}"
 
 
 @dataclass(frozen=True)
 class StaticConstraint:
     """static:check_type(target) — resolved via CodeQL, no runtime traces needed."""
     check_type: str
-    target: ElementRef      # element or api_ref (both are identifiers)
+    target: Optional[ElementRef] = None
     raw: str = field(default="", compare=False)
 
     def __str__(self) -> str:
-        return f"static:{self.check_type}({self.target})"
+        if self.target is None:
+            return f"{self.check_type}()"
+        return f"{self.check_type}({self.target})"

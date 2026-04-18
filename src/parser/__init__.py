@@ -10,7 +10,10 @@ from .ast_nodes import (
     ActionCondition,
     ApiErrorCondition,
     ApiStatusCondition,
+    CompoundCondition,
     ReadExpr,
+    LenExpr,
+    StatusExpr,
     FuncExpr,
     ArithExpr,
     NumberLiteral,
@@ -18,6 +21,7 @@ from .ast_nodes import (
     NullLiteral,
     ElementRef,
     Guard,
+    RangeExpr,
 )
 
 __all__ = [
@@ -32,7 +36,10 @@ __all__ = [
     "ActionCondition",
     "ApiErrorCondition",
     "ApiStatusCondition",
+    "CompoundCondition",
     "ReadExpr",
+    "LenExpr",
+    "StatusExpr",
     "FuncExpr",
     "ArithExpr",
     "NumberLiteral",
@@ -40,4 +47,5 @@ __all__ = [
     "NullLiteral",
     "ElementRef",
     "Guard",
+    "RangeExpr",
 ]

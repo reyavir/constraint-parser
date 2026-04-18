@@ -10,10 +10,10 @@ from src.parser.lexer import Token, TokenKind
 from src.parser.ast_nodes import (
     ProbabilisticConstraint, StaticConstraint,
     WriteEvent, CompoundWriteEvent, SeqOrderEvent, LenMatchEvent, ApiCallEvent,
-    ActionCondition, ApiErrorCondition, ApiStatusCondition,
-    ReadExpr, FuncExpr, ArithExpr,
+    ActionCondition, ApiErrorCondition, ApiStatusCondition, CompoundCondition,
+    ReadExpr, FuncExpr, ArithExpr, LenExpr, StatusExpr,
     NumberLiteral, StringLiteral, NullLiteral,
-    ElementRef, Guard,
+    ElementRef, Guard, RangeExpr,
 )
 from src.constraints.types import ConstraintType
 
@@ -24,19 +24,18 @@ from src.constraints.types import ConstraintType
 
 _KEYWORD_KINDS = {
     TokenKind.P, TokenKind.A, TokenKind.W, TokenKind.R, TokenKind.F,
-    TokenKind.CALL, TokenKind.SEQ, TokenKind.LEN, TokenKind.ERROR,
-    TokenKind.STATUS, TokenKind.STATIC, TokenKind.XOR, TokenKind.IN,
-    TokenKind.NULL,
+    TokenKind.CALL, TokenKind.LEN, TokenKind.STATUS, TokenKind.XOR,
+    TokenKind.NULL, TokenKind.NO_LITERAL, TokenKind.NO_HIDDEN_PARAM,
+    TokenKind.HIDDEN_ERRORS, TokenKind.D, TokenKind.API,
 }
 _OPERATOR_KINDS = {
     TokenKind.NOT, TokenKind.AND, TokenKind.PLUS, TokenKind.MINUS,
-    TokenKind.TIMES, TokenKind.DIVIDE, TokenKind.LT, TokenKind.GT,
-    TokenKind.LTE, TokenKind.GTE, TokenKind.EQ, TokenKind.NEQ,
+    TokenKind.LT, TokenKind.GT, TokenKind.LTE, TokenKind.GTE, TokenKind.NEQ,
     TokenKind.PIPE, TokenKind.LAST,
 }
 _PUNCTUATION_KINDS = {
-    TokenKind.LPAREN, TokenKind.RPAREN, TokenKind.COMMA,
-    TokenKind.EQUALS, TokenKind.COLON,
+    TokenKind.LPAREN, TokenKind.RPAREN, TokenKind.COMMA, TokenKind.EQUALS,
+    TokenKind.LBRACKET, TokenKind.RBRACKET,
 }
 
 
@@ -78,6 +77,7 @@ def serialize_ast(node: Any) -> dict | None:
             "node_type": "ProbabilisticConstraint",
             "event": serialize_ast(node.event),
             "condition": serialize_ast(node.condition),
+            "probability_op": node.probability_op,
             "probability": node.probability,
         }
 
@@ -136,6 +136,14 @@ def serialize_ast(node: Any) -> dict | None:
             "guard": serialize_ast(node.guard),
         }
 
+    if isinstance(node, CompoundCondition):
+        return {
+            "node_type": "CompoundCondition",
+            "op": node.op,
+            "left": serialize_ast(node.left),
+            "right": serialize_ast(node.right),
+        }
+
     if isinstance(node, ApiErrorCondition):
         return {
             "node_type": "ApiErrorCondition",
@@ -151,18 +159,11 @@ def serialize_ast(node: Any) -> dict | None:
         }
 
     if isinstance(node, Guard):
-        # value is either a literal node or a plain string (set-name)
-        value = node.value
-        value_serialized = (
-            {"node_type": "SetRef", "name": value}
-            if isinstance(value, str)
-            else serialize_ast(value)
-        )
         return {
             "node_type": "Guard",
-            "element": serialize_ast(node.element),
+            "left": serialize_ast(node.left),
             "op": node.op,
-            "value": value_serialized,
+            "right": serialize_ast(node.right),
         }
 
     # ── Value expressions ─────────────────────────────────────────────────
@@ -172,6 +173,18 @@ def serialize_ast(node: Any) -> dict | None:
             "node_type": "ReadExpr",
             "source": serialize_ast(node.source),
             "last": node.last,
+        }
+
+    if isinstance(node, LenExpr):
+        return {
+            "node_type": "LenExpr",
+            "arg": serialize_ast(node.arg),
+        }
+
+    if isinstance(node, StatusExpr):
+        return {
+            "node_type": "StatusExpr",
+            "api_ref": node.api_ref,
         }
 
     if isinstance(node, FuncExpr):
@@ -199,6 +212,14 @@ def serialize_ast(node: Any) -> dict | None:
 
     if isinstance(node, ElementRef):
         return {"node_type": "ElementRef", "name": node.name}
+
+    if isinstance(node, RangeExpr):
+        return {
+            "node_type": "RangeExpr",
+            "low": node.low,
+            "high": node.high,
+            "distribution": node.distribution,
+        }
 
     return {"node_type": "Unknown", "repr": repr(node)}
 
