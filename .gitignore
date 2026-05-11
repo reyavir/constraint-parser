@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+*.swp
+
+# CodeQL build output (large, regenerate locally)
+codeql-db/
+
+# ANTLR IDE cache (regenerate with antlr4)
+*.interp
+
+# Tests / tooling
+.pytest_cache/
+htmlcov/
+.coverage

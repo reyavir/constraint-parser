@@ -60,18 +60,24 @@ const EXAMPLES = [
   "P(w(a) ∧ w(b) | A(submitBtn)) = 1",
   "P(w(a) XOR w(b) | A(toggleBtn)) = 1",
   "P(seq(w(spinner)) < seq(w(results)) | A(searchBtn)) = 1",
-  "static:no_literal(priceDisplay)",
+  "no_literal(priceDisplay)",
+  "hidden_error()",
 ];
 
 /* ── DOM refs ─────────────────────────────────────────────────────────── */
-const input         = document.getElementById("constraint-input");
-const parseBtn      = document.getElementById("parse-btn");
-const resultsArea   = document.getElementById("results");
-const errorBox      = document.getElementById("error-box");
-const validationBox = document.getElementById("validation-box");
-const tokenCard     = document.getElementById("token-card");
-const astCard       = document.getElementById("ast-card");
-const typeCard      = document.getElementById("type-card");
+const input          = document.getElementById("constraint-input");
+const parseBtn       = document.getElementById("parse-btn");
+const resultsArea    = document.getElementById("results");
+const errorBox       = document.getElementById("error-box");
+const tokenCard      = document.getElementById("token-card");
+const parseTreeCard  = document.getElementById("parse-tree-card");
+const astCard        = document.getElementById("ast-card");
+const semanticsCard  = document.getElementById("semantics-card");
+const typeCard       = document.getElementById("type-card");
+const verifyCard    = document.getElementById("verify-card");
+const verifyBtn     = document.getElementById("verify-btn");
+const verifyDbInput = document.getElementById("verify-db-input");
+const verifyResult  = document.getElementById("verify-result");
 
 /* ── Bootstrap ────────────────────────────────────────────────────────── */
 document.getElementById("examples-container").innerHTML =
@@ -109,9 +115,11 @@ async function runParse() {
       showError(data.error);
     } else {
       renderTokens(data.tokens);
+      renderParseTree(data.parse_tree);
       renderAST(data.ast);
       renderConstraintType(data.type);
-      renderValidation(data.validation);
+      renderSemantics(data.semantics);
+      renderVerifyCard(data.verifiable);
       resultsArea.classList.remove("hidden");
     }
   } catch (err) {
@@ -143,42 +151,53 @@ function showError(msg) {
 
 function clearResults() {
   errorBox.classList.add("hidden");
-  validationBox.classList.add("hidden");
+  verifyCard.classList.add("hidden");
+  verifyResult.classList.add("hidden");
   resultsArea.classList.add("hidden");
   tokenCard.querySelector(".token-table tbody").innerHTML = "";
+  parseTreeCard.querySelector(".parse-tree").textContent = "";
   astCard.querySelector(".ast-root").innerHTML = "";
+  semanticsCard.querySelector(".semantics-body").innerHTML = "";
   typeCard.querySelector(".type-body").innerHTML = "";
+  typeCard.classList.remove("hidden");
 }
 
-/* ── Validation ───────────────────────────────────────────────────────── */
-function renderValidation(v) {
-  if (!v || v.valid) {
-    validationBox.classList.add("hidden");
+/* ── Step 4: Semantic analysis (Visitor 2) ────────────────────────────── */
+function renderSemantics(sem) {
+  const body = semanticsCard.querySelector(".semantics-body");
+
+  if (!sem) {
+    body.innerHTML = `
+      <div class="semantics-skipped">
+        Semantic analysis skipped — no AST.
+      </div>`;
     return;
   }
 
-  const parts = [];
-  if (v.unknown_elements.length) {
-    const chips = v.unknown_elements
-      .map(n => `<span class="validation-chip">${escapeHtml(n)}</span>`)
-      .join("");
-    parts.push(`Unknown element${v.unknown_elements.length > 1 ? "s" : ""}:<div class="validation-chips">${chips}</div>`);
-  }
-  if (v.unknown_apis.length) {
-    const chips = v.unknown_apis
-      .map(n => `<span class="validation-chip">${escapeHtml(n)}</span>`)
-      .join("");
-    parts.push(`Unknown API${v.unknown_apis.length > 1 ? "s" : ""}:<div class="validation-chips">${chips}</div>`);
+  if (sem.valid) {
+    body.innerHTML = `
+      <div class="semantics-pass">
+        <span class="semantics-pass-badge">Pass</span>
+        <span class="semantics-pass-msg">All semantic rules satisfied.</span>
+      </div>`;
+    return;
   }
 
-  validationBox.innerHTML = `
-    <div class="validation-header">
-      <span class="validation-badge">Unknown identifiers</span>
-      <span class="validation-title">These names are not in the approved mapping</span>
+  const n = sem.issues.length;
+  const rows = sem.issues.map(i => `
+    <li>
+      <span class="semantic-issue-code">${escapeHtml(i.code)}</span>
+      <span class="semantic-issue-msg">${escapeHtml(i.message)}</span>
+    </li>
+  `).join("");
+
+  body.innerHTML = `
+    <div class="semantics-fail-header">
+      <span class="semantics-fail-badge">Fail</span>
+      <span class="semantics-fail-title">${n} issue${n > 1 ? "s" : ""} found</span>
     </div>
-    <div class="validation-message">${parts.join("<br>")}</div>
+    <ul class="semantic-issues">${rows}</ul>
   `;
-  validationBox.classList.remove("hidden");
 }
 
 /* ── Step 1: Tokens ───────────────────────────────────────────────────── */
@@ -193,56 +212,56 @@ function renderTokens(tokens) {
   `).join("");
 }
 
-/* ── Step 2: AST ──────────────────────────────────────────────────────── */
+/* ── Step 2: Parse tree ───────────────────────────────────────────────── */
+function renderParseTree(treeStr) {
+  parseTreeCard.querySelector(".parse-tree").textContent = treeStr || "";
+}
+
+/* ── Step 3: AST ──────────────────────────────────────────────────────── */
 function renderAST(node) {
   const root = astCard.querySelector(".ast-root");
   root.innerHTML = renderASTNode(node, null);
 }
 
 /**
- * Recursively render an AST node as an indented tree.
+ * Recursively render the dict AST as an indented tree.
  * `label` is the field name from the parent (e.g. "event", "condition").
  */
 function renderASTNode(node, label) {
-  if (node === null) {
+  if (node === null || node === undefined) {
     return renderLeaf(label, "none", "null");
   }
 
-  // Leaf scalars (primitives inside nodes, not node_type fields)
-  // — these come up when a field IS a primitive, not from node_type dispatch
+  // Plain scalars (string element refs, numbers, booleans inside fields)
   if (typeof node !== "object") {
     const cls = typeof node === "boolean" ? "bool"
               : typeof node === "number"  ? "number"
               : "string";
-    return renderLeaf(label, String(node), cls);
+    const text = typeof node === "string" ? `"${escapeHtml(node)}"` : String(node);
+    return renderLeaf(label, text, cls);
   }
 
-  const { node_type, ...fields } = node;
-
-  // Special leaf nodes: render inline rather than as a subtree
-  if (node_type === "ElementRef") {
-    return renderLeaf(label, `"${escapeHtml(fields.name)}"`, "element");
-  }
-  if (node_type === "NumberLiteral") {
-    return renderLeaf(label, String(fields.value), "number");
-  }
-  if (node_type === "StringLiteral") {
-    return renderLeaf(label, `"${escapeHtml(fields.value)}"`, "string");
-  }
-  if (node_type === "NullLiteral") {
-    return renderLeaf(label, "null", "null");
-  }
-  if (node_type === "SetRef") {
-    return renderLeaf(label, `${escapeHtml(fields.name)} (set)`, "element");
+  if (Array.isArray(node)) {
+    return node.map((item, i) => renderASTNode(item, `${label ?? ""}[${i}]`)).join("");
   }
 
-  // Composite node — render header + children recursively
+  const { type, ...fields } = node;
+
+  // LiteralExpr collapses to a single inline value
+  if (type === "LiteralExpr") {
+    const v = fields.value;
+    if (v === "null")           return renderLeaf(label, "null", "null");
+    if (typeof v === "boolean") return renderLeaf(label, String(v), "bool");
+    if (typeof v === "number")  return renderLeaf(label, String(v), "number");
+    return renderLeaf(label, `"${escapeHtml(String(v))}"`, "string");
+  }
+
+  // Composite node — header + children
   const labelHtml = label
     ? `<span class="ast-field-label">${escapeHtml(label)}</span> `
     : "";
 
   const childrenHtml = Object.entries(fields).map(([key, val]) => {
-    // Skip booleans that are false to reduce noise, except for 'negated'
     if (val === false && key !== "negated") return "";
     if (val === null && key !== "guard" && key !== "value_expr" && key !== "params") return "";
     return renderASTNode(val, key);
@@ -251,7 +270,7 @@ function renderASTNode(node, label) {
   return `
     <div class="ast-node">
       <div class="ast-node-header">
-        ${labelHtml}<span class="ast-node-type">${escapeHtml(node_type)}</span>
+        ${labelHtml}<span class="ast-node-type">${escapeHtml(type ?? "Unknown")}</span>
       </div>
       ${childrenHtml}
     </div>
@@ -270,8 +289,14 @@ function renderLeaf(label, value, cls) {
   `;
 }
 
-/* ── Step 3: Constraint type ──────────────────────────────────────────── */
+/* ── Step 4: Constraint type ──────────────────────────────────────────── */
 function renderConstraintType(t) {
+  if (!t) {
+    // Classifier (visitor 2) not wired yet — hide the card entirely.
+    typeCard.classList.add("hidden");
+    return;
+  }
+  typeCard.classList.remove("hidden");
   const body = typeCard.querySelector(".type-body");
   body.innerHTML = `
     <span class="type-badge type-${t.color}">${escapeHtml(t.label)}</span>
@@ -290,6 +315,76 @@ function renderConstraintType(t) {
     <p class="type-detail">${escapeHtml(t.detail)}</p>
   `;
 }
+
+/* ── Step 5: Verify ───────────────────────────────────────────────────── */
+
+function renderVerifyCard(verifiable) {
+  if (verifiable) {
+    verifyCard.classList.remove("hidden");
+    verifyResult.classList.add("hidden");
+  } else {
+    verifyCard.classList.add("hidden");
+  }
+}
+
+verifyBtn.addEventListener("click", async () => {
+  const source  = input.value.trim();
+  const db_path = verifyDbInput.value.trim();
+  if (!source) return;
+
+  verifyBtn.disabled  = true;
+  verifyBtn.innerHTML = `<span class="spinner"></span>Verifying…`;
+  verifyResult.classList.add("hidden");
+
+  try {
+    const res  = await fetch("/verify", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ constraint: source, db_path }),
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      verifyResult.className   = "verify-result verify-fail";
+      verifyResult.innerHTML   = `
+        <div class="verify-header">
+          <span class="verify-badge verify-badge-fail">Error</span>
+          <span class="verify-title">${escapeHtml(data.error)}</span>
+        </div>`;
+    } else if (data.passed) {
+      verifyResult.className = "verify-result verify-pass";
+      verifyResult.innerHTML = `
+        <div class="verify-header">
+          <span class="verify-badge verify-badge-pass">Passed</span>
+          <span class="verify-title">No violations found</span>
+        </div>`;
+    } else {
+      const chips = data.violations
+        .map(v => `<span class="verify-violation">${escapeHtml(v.file)}:${v.line}</span>`)
+        .join("");
+      verifyResult.className = "verify-result verify-fail";
+      verifyResult.innerHTML = `
+        <div class="verify-header">
+          <span class="verify-badge verify-badge-fail">Failed</span>
+          <span class="verify-title">${data.violations.length} silent error${data.violations.length > 1 ? "s" : ""} found</span>
+        </div>
+        <div class="verify-violations">${chips}</div>`;
+    }
+    verifyResult.classList.remove("hidden");
+
+  } catch {
+    verifyResult.className = "verify-result verify-fail";
+    verifyResult.innerHTML = `
+      <div class="verify-header">
+        <span class="verify-badge verify-badge-fail">Error</span>
+        <span class="verify-title">Network error — is the server running?</span>
+      </div>`;
+    verifyResult.classList.remove("hidden");
+  } finally {
+    verifyBtn.disabled  = false;
+    verifyBtn.innerHTML = "Run Verification";
+  }
+});
 
 /* ── Utilities ────────────────────────────────────────────────────────── */
 function escapeHtml(str) {

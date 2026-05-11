@@ -71,9 +71,6 @@
   <!-- Error -->
   <div id="error-box" class="error-box hidden"></div>
 
-  <!-- Validation error -->
-  <div id="validation-box" class="validation-box hidden"></div>
-
   <!-- Results (hidden until first successful parse) -->
   <div id="results" class="hidden" style="display:flex;flex-direction:column;gap:1.5rem;">
 
@@ -95,22 +92,61 @@
       </table>
     </div>
 
-    <!-- Step 2: AST -->
-    <div id="ast-card" class="card">
+    <!-- Step 2: Parse tree -->
+    <div id="parse-tree-card" class="card">
       <div class="step-header">
         <div class="step-num">2</div>
-        <h2>Parser — Abstract Syntax Tree</h2>
+        <h2>Parser — Parse Tree</h2>
+      </div>
+      <pre class="parse-tree"></pre>
+    </div>
+
+    <!-- Step 3: AST (visitor 1) -->
+    <div id="ast-card" class="card">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <h2>Abstract Syntax Tree</h2>
       </div>
       <div class="ast-root"></div>
     </div>
 
-    <!-- Step 3: Constraint type -->
+    <!-- Step 4: Semantic analysis (visitor 2) -->
+    <div id="semantics-card" class="card">
+      <div class="step-header">
+        <div class="step-num">4</div>
+        <h2>Semantic Analysis</h2>
+      </div>
+      <div class="semantics-body"></div>
+    </div>
+
+    <!-- Step 5: Constraint type -->
     <div id="type-card" class="card">
       <div class="step-header">
-        <div class="step-num">3</div>
+        <div class="step-num">5</div>
         <h2>Classifier — Constraint Type</h2>
       </div>
       <div class="type-body"></div>
+    </div>
+
+    <!-- Step 6: Verify (shown only for implemented checks) -->
+    <div id="verify-card" class="card hidden">
+      <div class="step-header">
+        <div class="step-num">6</div>
+        <h2>Verify</h2>
+      </div>
+      <div class="input-row">
+        <input
+          id="verify-db-input"
+          class="constraint-input"
+          type="text"
+          value="./codeql-db"
+          placeholder="Path to CodeQL database"
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <button id="verify-btn" class="btn-parse btn-verify">Run Verification</button>
+      </div>
+      <div id="verify-result" class="verify-result hidden"></div>
     </div>
 
   </div><!-- /results -->

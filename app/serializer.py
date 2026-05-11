@@ -1,227 +1,76 @@
 """
-Converts lexer tokens and parser AST nodes into plain JSON-serializable dicts
+Convert lexer tokens and the dict AST into plain JSON-serialisable shapes
 for the API response.
+
+The AST is already a dict tree (produced by the ANTLR visitor), so it round-
+trips unchanged — we just enrich each token with a category so the UI can
+colourise them.
 """
 
 from __future__ import annotations
 from typing import Any
 
-from src.parser.lexer import Token, TokenKind
-from src.parser.ast_nodes import (
-    ProbabilisticConstraint, StaticConstraint,
-    WriteEvent, CompoundWriteEvent, SeqOrderEvent, LenMatchEvent, ApiCallEvent,
-    ActionCondition, ApiErrorCondition, ApiStatusCondition, CompoundCondition,
-    ReadExpr, FuncExpr, ArithExpr, LenExpr, StatusExpr,
-    NumberLiteral, StringLiteral, NullLiteral,
-    ElementRef, Guard, RangeExpr,
-)
+from src.parser.lexer import Token
 from src.constraints.types import ConstraintType
 
 
 # ---------------------------------------------------------------------------
-# Token serialization
+# Token serialisation
 # ---------------------------------------------------------------------------
 
-_KEYWORD_KINDS = {
-    TokenKind.P, TokenKind.A, TokenKind.W, TokenKind.R, TokenKind.F,
-    TokenKind.CALL, TokenKind.LEN, TokenKind.STATUS, TokenKind.XOR,
-    TokenKind.NULL, TokenKind.NO_LITERAL, TokenKind.NO_HIDDEN_PARAM,
-    TokenKind.HIDDEN_ERRORS, TokenKind.D, TokenKind.API,
+_KEYWORD_VALUES = {
+    "P(", "w(", "A(", "call(", "r(", "len(", "status(", "f(",
+    "api_result", "null", "D", "true", "false",
 }
-_OPERATOR_KINDS = {
-    TokenKind.NOT, TokenKind.AND, TokenKind.PLUS, TokenKind.MINUS,
-    TokenKind.LT, TokenKind.GT, TokenKind.LTE, TokenKind.GTE, TokenKind.NEQ,
-    TokenKind.PIPE, TokenKind.LAST,
+_OPERATOR_VALUES = {
+    "+", "-", "*", "/",
+    "=", "!=", "<", ">", "<=", ">=",
+    "|",
+    "NOT", "!", "¬",
+    "AND", "&&", "∧",
+    "OR",  "||", "∨",
+    "XOR",
+    "in",
 }
-_PUNCTUATION_KINDS = {
-    TokenKind.LPAREN, TokenKind.RPAREN, TokenKind.COMMA, TokenKind.EQUALS,
-    TokenKind.LBRACKET, TokenKind.RBRACKET,
-}
+_PUNCTUATION_VALUES = {"(", ")", ",", "[", "]"}
+_NUMERIC_SYMBOLS  = {"NUMBER"}
+_STRING_SYMBOLS   = {"STRING"}
+_IDENT_SYMBOLS    = {"IDENTIFIER"}
+_KEYWORD_SYMBOLS  = {"TRUE", "FALSE", "IN"}
+_OPERATOR_SYMBOLS = {"NOT", "AND", "OR", "XOR"}
 
 
-def _token_category(kind: TokenKind) -> str:
-    if kind in _KEYWORD_KINDS:    return "keyword"
-    if kind == TokenKind.IDENTIFIER: return "identifier"
-    if kind == TokenKind.NUMBER:  return "number"
-    if kind == TokenKind.STRING:  return "string"
-    if kind in _OPERATOR_KINDS:   return "operator"
-    if kind in _PUNCTUATION_KINDS: return "punctuation"
+def _token_category(tok: Token) -> str:
+    if tok.kind in _IDENT_SYMBOLS:    return "identifier"
+    if tok.kind in _NUMERIC_SYMBOLS:  return "number"
+    if tok.kind in _STRING_SYMBOLS:   return "string"
+    if tok.kind in _KEYWORD_SYMBOLS:  return "keyword"
+    if tok.kind in _OPERATOR_SYMBOLS: return "operator"
+    if tok.value in _KEYWORD_VALUES:     return "keyword"
+    if tok.value in _OPERATOR_VALUES:    return "operator"
+    if tok.value in _PUNCTUATION_VALUES: return "punctuation"
     return "other"
 
 
 def serialize_tokens(tokens: list[Token]) -> list[dict]:
     return [
         {
-            "kind": tok.kind.name,
-            "value": tok.value,
-            "pos": tok.pos,
-            "category": _token_category(tok.kind),
+            "kind":     tok.kind,
+            "value":    tok.value,
+            "pos":      tok.pos,
+            "category": _token_category(tok),
         }
         for tok in tokens
-        if tok.kind != TokenKind.EOF
     ]
 
 
 # ---------------------------------------------------------------------------
-# AST serialization — recursive, mirrors the node hierarchy
+# AST serialisation — the visitor already returns plain dicts, so this is
+# just a defensive pass-through that copes with None.
 # ---------------------------------------------------------------------------
 
-def serialize_ast(node: Any) -> dict | None:
-    if node is None:
-        return None
-
-    # ── Top-level constraints ──────────────────────────────────────────────
-
-    if isinstance(node, ProbabilisticConstraint):
-        return {
-            "node_type": "ProbabilisticConstraint",
-            "event": serialize_ast(node.event),
-            "condition": serialize_ast(node.condition),
-            "probability_op": node.probability_op,
-            "probability": node.probability,
-        }
-
-    if isinstance(node, StaticConstraint):
-        return {
-            "node_type": "StaticConstraint",
-            "check_type": node.check_type,
-            "target": serialize_ast(node.target),
-        }
-
-    # ── Events ────────────────────────────────────────────────────────────
-
-    if isinstance(node, WriteEvent):
-        return {
-            "node_type": "WriteEvent",
-            "element": serialize_ast(node.element),
-            "value_expr": serialize_ast(node.value_expr),
-        }
-
-    if isinstance(node, CompoundWriteEvent):
-        return {
-            "node_type": "CompoundWriteEvent",
-            "op": node.op,
-            "left": serialize_ast(node.left),
-            "right": serialize_ast(node.right),
-        }
-
-    if isinstance(node, SeqOrderEvent):
-        return {
-            "node_type": "SeqOrderEvent",
-            "first": serialize_ast(node.first),
-            "second": serialize_ast(node.second),
-        }
-
-    if isinstance(node, LenMatchEvent):
-        return {
-            "node_type": "LenMatchEvent",
-            "left": serialize_ast(node.left),
-            "right": serialize_ast(node.right),
-        }
-
-    if isinstance(node, ApiCallEvent):
-        return {
-            "node_type": "ApiCallEvent",
-            "api_ref": node.api_ref,
-            "params": serialize_ast(node.params),
-        }
-
-    # ── Conditions ────────────────────────────────────────────────────────
-
-    if isinstance(node, ActionCondition):
-        return {
-            "node_type": "ActionCondition",
-            "element": serialize_ast(node.element),
-            "negated": node.negated,
-            "guard": serialize_ast(node.guard),
-        }
-
-    if isinstance(node, CompoundCondition):
-        return {
-            "node_type": "CompoundCondition",
-            "op": node.op,
-            "left": serialize_ast(node.left),
-            "right": serialize_ast(node.right),
-        }
-
-    if isinstance(node, ApiErrorCondition):
-        return {
-            "node_type": "ApiErrorCondition",
-            "api_ref": node.api_ref,
-        }
-
-    if isinstance(node, ApiStatusCondition):
-        return {
-            "node_type": "ApiStatusCondition",
-            "api_ref": node.api_ref,
-            "op": node.op,
-            "status_code": node.status_code,
-        }
-
-    if isinstance(node, Guard):
-        return {
-            "node_type": "Guard",
-            "left": serialize_ast(node.left),
-            "op": node.op,
-            "right": serialize_ast(node.right),
-        }
-
-    # ── Value expressions ─────────────────────────────────────────────────
-
-    if isinstance(node, ReadExpr):
-        return {
-            "node_type": "ReadExpr",
-            "source": serialize_ast(node.source),
-            "last": node.last,
-        }
-
-    if isinstance(node, LenExpr):
-        return {
-            "node_type": "LenExpr",
-            "arg": serialize_ast(node.arg),
-        }
-
-    if isinstance(node, StatusExpr):
-        return {
-            "node_type": "StatusExpr",
-            "api_ref": node.api_ref,
-        }
-
-    if isinstance(node, FuncExpr):
-        return {
-            "node_type": "FuncExpr",
-            "arg": serialize_ast(node.arg),
-        }
-
-    if isinstance(node, ArithExpr):
-        return {
-            "node_type": "ArithExpr",
-            "left": serialize_ast(node.left),
-            "op": node.op,
-            "right": serialize_ast(node.right),
-        }
-
-    if isinstance(node, NumberLiteral):
-        return {"node_type": "NumberLiteral", "value": node.value}
-
-    if isinstance(node, StringLiteral):
-        return {"node_type": "StringLiteral", "value": node.value}
-
-    if isinstance(node, NullLiteral):
-        return {"node_type": "NullLiteral"}
-
-    if isinstance(node, ElementRef):
-        return {"node_type": "ElementRef", "name": node.name}
-
-    if isinstance(node, RangeExpr):
-        return {
-            "node_type": "RangeExpr",
-            "low": node.low,
-            "high": node.high,
-            "distribution": node.distribution,
-        }
-
-    return {"node_type": "Unknown", "repr": repr(node)}
+def serialize_ast(node: Any) -> Any:
+    return node
 
 
 # ---------------------------------------------------------------------------
@@ -245,10 +94,25 @@ _TYPE_META: dict[ConstraintType, dict] = {
         "color": "green",
         "summary": "Runtime value comparison",
         "detail": (
-            "Like Probabilistic, but also capture the actual value written to ej in each "
-            "trace and verify it matches the value expression (e.g. r(ei) + 1)."
+            "The written value comes from a constant or an external source "
+            "(literal, len(api_result), status(api)) so runtime is enough — "
+            "capture the actual value written to ej and verify it matches "
+            "the value expression."
         ),
         "checker": "check_value(params, traces)",
+    },
+    ConstraintType.VALUE_WITH_DATAFLOW: {
+        "label": "Value + Dataflow",
+        "color": "indigo",
+        "summary": "Runtime value + CodeQL dataflow",
+        "detail": (
+            "The written value derives from another UI element (r(e), f(r(e)), "
+            "r(e)+1, …) so runtime alone is not enough — the values could match "
+            "by coincidence. Combine: runtime traces verify the value match, "
+            "AND a CodeQL dataflow query verifies that a path actually exists "
+            "from the source element to ej in the source code."
+        ),
+        "checker": "check_value(params, traces) + run_codeql(dataflow_query, db_path)",
     },
     ConstraintType.COUNTERFACTUAL: {
         "label": "Counterfactual",

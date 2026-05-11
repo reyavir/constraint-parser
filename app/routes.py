@@ -3,14 +3,20 @@ import threading
 
 from flask import Blueprint, render_template, request, jsonify
 
-from src.parser.lexer import tokenize, LexerError
-from src.parser.parser import parse, ParseError
+from src.parser.lexer import LexerError
+from src.parser.parser import parse, parse_with_steps, ParseError, SemanticError
 from src.constraints.classifier import classify
+from src.constraints.semantic import analyze as analyze_semantics
 from src.mapping.codeql_runner import collect_raw_elements
 from src.mapping.generator import generate_draft_mapping
 from src.mapping.pipeline import MAPPING_FILE
-from src.mapping.validator import validate_identifiers
+from src.verifier import verify as run_verify
 from .serializer import serialize_tokens, serialize_ast, serialize_constraint_type
+
+# Names of ConstraintType variants whose checker is wired end-to-end. Populate
+# as verifiers ship (currently empty — every branch in src/verifier.py is a
+# stub that raises NotImplementedError).
+_IMPLEMENTED: set[str] = set()
 
 bp = Blueprint("main", __name__)
 
@@ -32,21 +38,35 @@ def parse_constraint():
         return jsonify({"success": False, "error": "No constraint provided."}), 400
 
     try:
-        tokens = tokenize(source)
-        ast    = parse(source)
-        ctype  = classify(ast)
+        steps = parse_with_steps(source)
+        tokens     = steps["tokens"]
+        parse_tree = steps["parse_tree"]
+        ast        = steps["ast"]
 
-        # Identifier validation — skipped silently if no mapping exists yet
-        validation = None
-        if MAPPING_FILE.exists():
-            validation = validate_identifiers(ast).to_dict()
+        # Classification depends on Visitor 2; tolerate NotImplementedError until
+        # the dict-AST classifier lands.
+        type_payload = None
+        try:
+            ctype = classify(ast)
+            type_payload = serialize_constraint_type(ctype)
+        except NotImplementedError:
+            type_payload = None
+
+        # Visitor 2 — semantic analysis (rules 1-8, including identifier checks
+        # against the approved mapping).
+        semantics = analyze_semantics(ast).to_dict()
+
+        verifiable = (type_payload is not None
+                      and type_payload["name"] in _IMPLEMENTED)
 
         return jsonify({
             "success":    True,
             "tokens":     serialize_tokens(tokens),
+            "parse_tree": parse_tree,
             "ast":        serialize_ast(ast),
-            "type":       serialize_constraint_type(ctype),
-            "validation": validation,
+            "type":       type_payload,
+            "semantics":  semantics,
+            "verifiable": verifiable,
         })
 
     except LexerError as exc:
@@ -54,6 +74,9 @@ def parse_constraint():
 
     except ParseError as exc:
         return jsonify({"success": False, "error": f"Parse error: {exc}"}), 422
+
+    except SemanticError as exc:
+        return jsonify({"success": False, "error": f"Semantic error: {exc}"}), 422
 
     except Exception as exc:          # unexpected — show a safe message
         return jsonify({"success": False, "error": f"Unexpected error: {exc}"}), 500
@@ -118,6 +141,24 @@ def mapping_approve():
         json.dump(mapping, f, indent=2)
 
     return jsonify({"saved": True, "path": str(MAPPING_FILE)})
+
+
+@bp.post("/verify")
+def verify_constraint():
+    data       = request.get_json(silent=True) or {}
+    source     = (data.get("constraint") or "").strip()
+    db_path    = (data.get("db_path") or "./codeql-db").strip()
+
+    if not source:
+        return jsonify({"success": False, "error": "No constraint provided."}), 400
+
+    try:
+        ast    = parse(source)
+        result = run_verify(ast, db_path=db_path)
+        return jsonify({"success": True, **result})
+
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
 
 
 @bp.get("/mapping/elements")

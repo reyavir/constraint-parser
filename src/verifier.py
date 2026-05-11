@@ -1,15 +1,9 @@
 """
-Verification dispatcher.
+Verification dispatcher — picks a strategy via the classifier.
 
-Takes a parsed constraint AST node and routes it to the appropriate
-verification strategy based on its ConstraintType.
-
-Usage
------
-    from src.parser import parse
-    from src.verifier import verify
-
-    result = verify(parse("P(w(cartDisplay) | A(addBtn)) = 1"), traces=traces)
+`classify()` reduces the dict AST to a `ConstraintType`; this module routes
+each variant to the appropriate checker. The checkers themselves are stubs
+for now; each branch documents the function that should fill it in.
 """
 
 from __future__ import annotations
@@ -18,106 +12,38 @@ from typing import Any
 
 from .constraints.classifier import classify
 from .constraints.types import ConstraintType
-from .parser.ast_nodes import StaticConstraint
+from .mapping.codeql_runner import run_query
 
 
-# ---------------------------------------------------------------------------
-# CodeQL query stubs — fill in real query strings when ready
-# ---------------------------------------------------------------------------
-
-NO_LITERAL_QUERY    = ""  # TODO
-NO_HIDDEN_PARAM_QUERY = ""  # TODO
-HIDDEN_ERROR_QUERY  = ""  # TODO
-
-
-# ---------------------------------------------------------------------------
-# Public entry point
-# ---------------------------------------------------------------------------
-
-def verify(parsed: Any, traces: Any = None, network_log: Any = None) -> Any:
-    """
-    Dispatch *parsed* to the correct verification function.
-
-    Parameters
-    ----------
-    parsed:
-        A top-level AST node returned by ``parse()``.
-    traces:
-        Runtime trace data required by most dynamic checks.
-    network_log:
-        Network intercept log required only for API_CALL constraints.
-    """
-    ctype = classify(parsed)
-
+def verify(
+    ast: dict,
+    traces: Any = None,
+    network_log: Any = None,
+    db_path: str = "./codeql-db",
+) -> dict[str, Any]:
+    ctype = classify(ast)
     match ctype:
-        case ConstraintType.PROBABILISTIC:
-            return check_probabilistic(parsed, traces)
-        case ConstraintType.VALUE:
-            return check_value(parsed, traces)
-        case ConstraintType.COUNTERFACTUAL:
-            return check_counterfactual(parsed, traces)
-        case ConstraintType.API_CALL:
-            return check_api_call(parsed, traces, network_log)
-        case ConstraintType.COMPOUND:
-            return check_compound(parsed, traces)
-        case ConstraintType.EXCLUSIVE:
-            return check_exclusive(parsed, traces)
-        case ConstraintType.ORDER:
-            return check_order(parsed, traces)
-        case ConstraintType.LENGTH_MATCH:
-            return check_length(parsed, traces)
-        case ConstraintType.STATIC:
-            return _dispatch_static(parsed)
-
-
-def _dispatch_static(parsed: StaticConstraint) -> Any:
-    """Further dispatch STATIC constraints by their check_type."""
-    match parsed.check_type:
-        case "no_literal":
-            return run_codeql(NO_LITERAL_QUERY, parsed)
-        case "no_hidden_param":
-            return run_codeql(NO_HIDDEN_PARAM_QUERY, parsed)
-        case "hidden_error":
-            return run_codeql(HIDDEN_ERROR_QUERY, parsed)
+        case ConstraintType.PROBABILISTIC:  return _todo(ctype, "check_probabilistic(ast, traces)")
+        case ConstraintType.VALUE:          return _todo(ctype, "check_value(ast, traces)")
+        case ConstraintType.VALUE_WITH_DATAFLOW:
+            return _todo(ctype, "check_value(ast, traces) + run_codeql(dataflow_query, db_path)")
+        case ConstraintType.COUNTERFACTUAL: return _todo(ctype, "check_counterfactual(ast, traces)")
+        case ConstraintType.API_CALL:       return _todo(ctype, "check_api_call(ast, traces, network_log)")
+        case ConstraintType.COMPOUND:       return _todo(ctype, "check_compound(ast, traces)")
+        case ConstraintType.EXCLUSIVE:      return _todo(ctype, "check_exclusive(ast, traces)")
+        case ConstraintType.LENGTH_MATCH:   return _todo(ctype, "check_length(ast, traces)")
+        case ConstraintType.ORDER:          return _todo(ctype, "check_order(ast, traces)")
+        case ConstraintType.STATIC:         return _todo(ctype, "run_codeql(query, db_path)")
         case _:
-            raise ValueError(f"Unknown static check_type: {parsed.check_type!r}")
+            raise NotImplementedError(f"No verifier mapped to {ctype}.")
 
 
-# ---------------------------------------------------------------------------
-# Verification stubs — implement each when ready
-# ---------------------------------------------------------------------------
-
-def check_probabilistic(parsed: Any, traces: Any) -> Any:
-    pass
+def _todo(ctype: ConstraintType, hint: str) -> dict:
+    raise NotImplementedError(
+        f"Verifier for {ctype.name} is not implemented yet — wire up {hint}."
+    )
 
 
-def check_value(parsed: Any, traces: Any) -> Any:
-    pass
-
-
-def check_counterfactual(parsed: Any, traces: Any) -> Any:
-    pass
-
-
-def check_api_call(parsed: Any, traces: Any, network_log: Any) -> Any:
-    pass
-
-
-def check_compound(parsed: Any, traces: Any) -> Any:
-    pass
-
-
-def check_exclusive(parsed: Any, traces: Any) -> Any:
-    pass
-
-
-def check_order(parsed: Any, traces: Any) -> Any:
-    pass
-
-
-def check_length(parsed: Any, traces: Any) -> Any:
-    pass
-
-
-def run_codeql(query: str, parsed: StaticConstraint) -> Any:
-    pass
+def run_codeql(query_file: str, db_path: str) -> dict:
+    rows = run_query(db_path, query_file)
+    return {"passed": len(rows) == 0, "violations": rows}

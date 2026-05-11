@@ -67,6 +67,24 @@ checkoutBtn.addEventListener("click", async function () {
   }
 });
 
+// ── Analytics (silent failure — error never reaches DOM) ──────────────────
+
+function trackAddToCart(productId, qty) {
+  try {
+    const payload = JSON.stringify({ event: "add_to_cart", productId, qty });
+    localStorage.setItem("last_event", payload);
+    // fire-and-forget analytics ping
+    fetch("/api/analytics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+    });
+  } catch (err) {
+    // swallowed — analytics failures should never block the user
+    console.log("Analytics error:", err);
+  }
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function renderCartItems(items) {

@@ -7,9 +7,16 @@ Each variant maps to a distinct verification strategy:
                      Verified by counting how often ej is written across traces
                      where A(ei) fires.
 
-    VALUE          — P(w(ej, expr) | A(ei)) = p
-                     Like PROBABILISTIC but also checks the written value matches
-                     the expression.
+    VALUE          — P(w(ej, expr) | A(ei)) = p where expr is a constant /
+                     external (LiteralExpr, LenExpr, StatusExpr).
+                     Runtime-only: verify the trace value matches expr.
+
+    VALUE_WITH_DATAFLOW
+                   — P(w(ej, expr) | A(ei)) = p where expr derives from another
+                     element (ReadExpr/FuncExpr/IncrementExpr/BinaryExpr).
+                     Runtime + CodeQL: runtime verifies the value match, CodeQL
+                     verifies a data-flow path actually exists from the source
+                     element to ej (otherwise the match might be coincidental).
 
     COUNTERFACTUAL — P(w(ej) | ¬A(ei)) = 0
                      The condition is negated; checks that ej does NOT update
@@ -38,12 +45,13 @@ from enum import Enum, auto
 
 
 class ConstraintType(Enum):
-    PROBABILISTIC  = auto()
-    VALUE          = auto()
-    COUNTERFACTUAL = auto()
-    API_CALL       = auto()
-    COMPOUND       = auto()
-    EXCLUSIVE      = auto()
-    ORDER          = auto()
-    LENGTH_MATCH   = auto()
-    STATIC         = auto()
+    PROBABILISTIC       = auto()
+    VALUE               = auto()
+    VALUE_WITH_DATAFLOW = auto()
+    COUNTERFACTUAL      = auto()
+    API_CALL            = auto()
+    COMPOUND            = auto()
+    EXCLUSIVE           = auto()
+    ORDER               = auto()
+    LENGTH_MATCH        = auto()
+    STATIC              = auto()
