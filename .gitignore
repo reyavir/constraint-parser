@@ -21,3 +21,7 @@ codeql-db/
 .pytest_cache/
 htmlcov/
 .coverage
+
+# Local user state
+constraints_inbox.json
+*.bak

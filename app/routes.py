@@ -1,15 +1,15 @@
 import json
-import threading
+from pathlib import Path
 
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, abort, send_file
 
 from src.parser.lexer import LexerError
 from src.parser.parser import parse, parse_with_steps, ParseError, SemanticError
 from src.constraints.classifier import classify
 from src.constraints.semantic import analyze as analyze_semantics
-from src.mapping.codeql_runner import collect_raw_elements
-from src.mapping.generator import generate_draft_mapping
 from src.mapping.pipeline import MAPPING_FILE
+from src.mapping.scan_ids import scan_element_ids
+from src.instrumenter import inject_ids, repo_status, inject_script, rewrite_absolute_paths
 from src.verifier import verify as run_verify
 from .serializer import serialize_tokens, serialize_ast, serialize_constraint_type
 
@@ -19,9 +19,6 @@ from .serializer import serialize_tokens, serialize_ast, serialize_constraint_ty
 _IMPLEMENTED: set[str] = set()
 
 bp = Blueprint("main", __name__)
-
-# Simple in-memory job state — only one mapping scan runs at a time
-_job: dict = {"status": "idle", "log": [], "result": None, "error": None}
 
 
 @bp.get("/")
@@ -84,63 +81,27 @@ def parse_constraint():
 
 # ── Mapping routes ─────────────────────────────────────────────────────────
 
-@bp.post("/mapping/generate")
-def mapping_generate():
-    global _job
-    data    = request.get_json(silent=True) or {}
-    db_path = (data.get("db_path") or "./codeql-db").strip()
+@bp.post("/mapping/scan")
+def mapping_scan():
+    """Walk the source dir, list every DOM id + label, write element_mapping.json."""
+    data       = request.get_json(silent=True) or {}
+    source_dir = (data.get("source_dir") or "").strip()
+    if not source_dir:
+        return jsonify({"success": False, "error": "No source path provided."}), 400
 
-    if _job["status"] == "running":
-        return jsonify({"error": "A scan is already running."}), 409
+    try:
+        mapping = scan_element_ids(source_dir)
+    except FileNotFoundError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Unexpected: {exc}"}), 500
 
-    _job = {"status": "running", "log": [], "result": None, "error": None}
-
-    def run():
-        try:
-            _job["log"].append("Step 1: scanning codebase with CodeQL…")
-            raw = collect_raw_elements(db_path)
-            _job["log"].append(
-                f"Found {len(raw['actions'])} action elements, "
-                f"{len(raw['displays'])} display elements, "
-                f"{len(raw['apis'])} API call sites, "
-                f"{len(raw['errors'])} error handlers."
-            )
-            _job["log"].append("Step 2: generating draft mapping with LLM…")
-            draft = generate_draft_mapping(raw)
-            _job["result"] = draft
-            _job["status"] = "done"
-            _job["log"].append("Done — review the mapping below.")
-        except Exception as exc:
-            _job["status"] = "error"
-            _job["error"]  = str(exc)
-            _job["log"].append(f"Error: {exc}")
-
-    threading.Thread(target=run, daemon=True).start()
-    return jsonify({"started": True})
-
-
-@bp.get("/mapping/status")
-def mapping_status():
+    MAPPING_FILE.write_text(json.dumps(mapping, indent=2))
     return jsonify({
-        "status": _job["status"],
-        "log":    _job["log"],
-        "result": _job["result"],
-        "error":  _job["error"],
+        "success":      True,
+        "elements":     len(mapping["elements"]),
+        "path":         str(MAPPING_FILE),
     })
-
-
-@bp.post("/mapping/approve")
-def mapping_approve():
-    data    = request.get_json(silent=True) or {}
-    mapping = data.get("mapping")
-
-    if not mapping:
-        return jsonify({"error": "No mapping provided."}), 400
-
-    with open(MAPPING_FILE, "w") as f:
-        json.dump(mapping, f, indent=2)
-
-    return jsonify({"saved": True, "path": str(MAPPING_FILE)})
 
 
 @bp.post("/verify")
@@ -161,6 +122,15 @@ def verify_constraint():
         return jsonify({"success": False, "error": str(exc)}), 500
 
 
+@bp.get("/mapping/raw")
+def mapping_raw():
+    """Full mapping file contents — used by the Element Mapping tab preview."""
+    if not MAPPING_FILE.exists():
+        return jsonify({"available": False})
+    with open(MAPPING_FILE) as f:
+        return jsonify(json.load(f))
+
+
 @bp.get("/mapping/elements")
 def mapping_elements():
     if not MAPPING_FILE.exists():
@@ -169,9 +139,139 @@ def mapping_elements():
     with open(MAPPING_FILE) as f:
         mapping = json.load(f)
 
+    elements = [
+        {"id": k, "label": (v or {}).get("label", k)}
+        for k, v in (mapping.get("elements") or {}).items()
+    ]
+    apis = [
+        {"id": k, "label": (v or {}).get("label", k)}
+        for k, v in (mapping.get("apis") or {}).items()
+    ]
     return jsonify({
-        "available": True,
-        "elements":       list(mapping.get("elements", {}).keys()),
-        "apis":           list(mapping.get("apis", {}).keys()),
+        "available":      True,
+        "elements":       elements,
+        "apis":           apis,
         "error_handlers": mapping.get("error_handlers", []),
     })
+
+
+# ── ID injection ────────────────────────────────────────────────────────────
+
+@bp.post("/instrument/check")
+def instrument_check():
+    """Report whether *source_dir* exists and is a git repo so the UI can
+    decide whether to show the no-git confirmation banner."""
+    data = request.get_json(silent=True) or {}
+    source_dir = (data.get("source_dir") or "").strip()
+    if not source_dir:
+        return jsonify({"error": "No source path provided."}), 400
+    return jsonify(repo_status(source_dir))
+
+
+@bp.post("/instrument")
+def instrument_source():
+    data = request.get_json(silent=True) or {}
+    source_dir = (data.get("source_dir") or "").strip()
+    confirmed  = bool(data.get("confirmed"))
+    if not source_dir:
+        return jsonify({"success": False, "error": "No source path provided."}), 400
+
+    status = repo_status(source_dir)
+    if not status["exists"]:
+        return jsonify({"success": False, "error": f"Not a directory: {source_dir}"}), 400
+
+    # Confirm before rewriting files in a non-git directory.
+    if not status["is_git"] and not confirmed:
+        return jsonify({
+            "success": False,
+            "needs_confirmation": True,
+            "reason": "no_git",
+            "path":   status["path"],
+        })
+
+    try:
+        result = inject_ids(source_dir)
+        return jsonify({"success": True, **result})
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Unexpected: {exc}"}), 500
+
+
+# ── Preview (serve user's app with overlay injected) ──────────────────────
+
+@bp.get("/preview/<path:filename>")
+def preview(filename: str):
+    """Serve a file from the user's source dir, rewriting HTML on the way out."""
+    source = (request.args.get("source") or "").strip()
+    if not source:
+        return "Missing ?source=<path> query string.", 400
+
+    root = Path(source).expanduser().resolve()
+    if not root.is_dir():
+        return f"Source not found: {source}", 404
+
+    file_path = (root / filename).resolve()
+    # Path-traversal guard
+    try:
+        file_path.relative_to(root)
+    except ValueError:
+        abort(403)
+    if not file_path.is_file():
+        abort(404)
+
+    if file_path.suffix.lower() in (".html", ".htm"):
+        html = file_path.read_text()
+        html = rewrite_absolute_paths(html, source)
+        html = inject_script(html)
+        return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+    return send_file(file_path)
+
+
+# ── Constraints inbox (overlay → server → Visual Builder tab) ─────────────
+
+INBOX_FILE = Path("constraints_inbox.json")
+
+
+def _load_inbox() -> list[dict]:
+    if not INBOX_FILE.exists():
+        return []
+    try:
+        return json.loads(INBOX_FILE.read_text())
+    except Exception:
+        return []
+
+
+def _save_inbox(items: list[dict]) -> None:
+    INBOX_FILE.write_text(json.dumps(items, indent=2))
+
+
+@bp.post("/constraints/import")
+def constraints_import():
+    """Overlay → here. Dedupe by `created_at` and append."""
+    payload = request.get_json(silent=True) or {}
+    incoming = payload.get("constraints") or []
+    if not isinstance(incoming, list):
+        return jsonify({"success": False, "error": "Payload must contain a list."}), 400
+
+    existing = _load_inbox()
+    seen = {c.get("created_at") for c in existing}
+    added = 0
+    for c in incoming:
+        key = c.get("created_at")
+        if key and key not in seen:
+            existing.append(c)
+            seen.add(key)
+            added += 1
+    _save_inbox(existing)
+    return jsonify({"success": True, "added": added, "total": len(existing)})
+
+
+@bp.get("/constraints/list")
+def constraints_list():
+    return jsonify({"constraints": _load_inbox()})
+
+
+@bp.post("/constraints/clear")
+def constraints_clear():
+    _save_inbox([])
+    return jsonify({"success": True})

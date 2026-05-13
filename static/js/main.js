@@ -16,16 +16,22 @@ async function loadElementReference() {
       return;
     }
 
-    // Elements chips
-    refElements.innerHTML = data.elements.map(name =>
-      `<button class="ref-chip ref-chip-element" data-insert="${escapeAttr(name)}">${escapeHtml(name)}</button>`
-    ).join("");
+    // Elements chips — id is the canonical handle, label shown for humans.
+    refElements.innerHTML = data.elements.map(e => {
+      const text = e.label && e.label !== e.id ? `${e.id} (${e.label})` : e.id;
+      return `<button class="ref-chip ref-chip-element"
+                       data-insert="${escapeAttr(e.id)}"
+                       title="${escapeAttr(e.label || '')}">${escapeHtml(text)}</button>`;
+    }).join("");
 
     // API chips
     if (data.apis.length) {
-      refApis.innerHTML = data.apis.map(name =>
-        `<button class="ref-chip ref-chip-api" data-insert="${escapeAttr(name)}">${escapeHtml(name)}</button>`
-      ).join("");
+      refApis.innerHTML = data.apis.map(a => {
+        const text = a.label && a.label !== a.id ? `${a.id} (${a.label})` : a.id;
+        return `<button class="ref-chip ref-chip-api"
+                         data-insert="${escapeAttr(a.id)}"
+                         title="${escapeAttr(a.label || '')}">${escapeHtml(text)}</button>`;
+      }).join("");
       refApisRow.classList.remove("hidden");
     }
 

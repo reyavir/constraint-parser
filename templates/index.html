@@ -22,6 +22,7 @@
   <nav class="tab-nav">
     <button class="tab-btn active" data-tab="parser">Parser</button>
     <button class="tab-btn" data-tab="mapping">Element Mapping</button>
+    <button class="tab-btn" data-tab="builder">Visual Builder</button>
   </nav>
 
   <!-- ── Parser tab ── -->
@@ -156,97 +157,73 @@
   <!-- ── Mapping tab ── -->
   <div id="tab-mapping" class="tab-panel hidden">
 
-    <!-- Step 1: scan -->
+    <!-- Step 0: inject IDs -->
     <div class="card">
-      <div class="card-title">Element Mapping</div>
+      <div class="card-title">Inject IDs into source</div>
       <p class="mapping-intro">
-        Scan a CodeQL database to discover every UI element, API call, and error handler
-        in your app. The LLM will generate a draft mapping — you can rename elements
-        before approving.
+        Add stable IDs (<code>cv_0001</code>, <code>cv_0002</code>, …) to every UI
+        element in your source so CodeQL can locate them from constraints. This
+        rewrites your HTML / JS files in place. If the target isn't a git repo,
+        a <code>.bak</code> copy is written alongside every modified file.
       </p>
 
       <div class="input-row" style="margin-top:1rem;">
         <input
-          id="db-path-input"
+          id="source-path-input"
           class="constraint-input"
           type="text"
-          value="./codeql-db"
-          placeholder="Path to CodeQL database"
+          value="./test-app"
+          placeholder="Path to source (e.g. ./test-app)"
           spellcheck="false"
           autocomplete="off"
         />
-        <button id="scan-btn" class="btn-parse">Scan &amp; Generate</button>
+        <button id="inject-btn" class="btn-parse">Add IDs</button>
       </div>
+
+      <div id="inject-warning" class="inject-warning hidden"></div>
+      <div id="inject-result"  class="inject-result hidden"></div>
     </div>
 
-    <!-- Progress log -->
-    <div id="scan-log-card" class="card hidden">
-      <div class="step-header">
-        <div class="step-num">1</div>
-        <h2>Scan Progress</h2>
-      </div>
-      <div id="scan-log" class="scan-log"></div>
-    </div>
-
-    <!-- Draft mapping -->
-    <div id="mapping-result-card" class="card hidden">
-      <div class="step-header">
-        <div class="step-num">2</div>
-        <h2>Draft Mapping — Review &amp; Rename</h2>
-      </div>
-      <p class="mapping-intro" style="margin-bottom:1rem;">
-        Edit the <strong>Constraint Name</strong> column — this is the identifier you will
-        use in constraints (e.g. <code>addToCartBtn</code>). Other columns are read-only.
+    <!-- Step 1: scan source for ids -->
+    <div class="card">
+      <div class="card-title">Element list</div>
+      <p class="mapping-intro">
+        Walk the same source path and list every DOM id (with its derived label).
+        Used by the Parser tab for autocomplete chips and by Visitor 2 to flag
+        unknown identifiers.
       </p>
 
-      <div class="mapping-section-label">Elements</div>
-      <div class="table-scroll">
-        <table class="mapping-table" id="elements-table">
-          <thead>
-            <tr>
-              <th>Constraint Name</th>
-              <th>Selector</th>
-              <th>Tag</th>
-              <th>Kind</th>
-              <th>Events / Read property</th>
-              <th>File</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <div class="input-row" style="margin-top:1rem;">
+        <input
+          id="scan-source-input"
+          class="constraint-input"
+          type="text"
+          value="./test-app"
+          placeholder="Path to source (e.g. ./test-app)"
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <button id="scan-btn" class="btn-parse">Refresh element list</button>
       </div>
 
-      <div class="mapping-section-label" style="margin-top:1.5rem;">API Endpoints</div>
-      <div class="table-scroll">
-        <table class="mapping-table" id="apis-table">
-          <thead>
-            <tr>
-              <th>Constraint Name</th>
-              <th>Endpoint</th>
-              <th>Method</th>
-              <th>File</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <div id="scan-result" class="inject-result hidden"></div>
 
-      <div class="mapping-section-label" style="margin-top:1.5rem;">Error Handlers</div>
-      <div class="table-scroll">
-        <table class="mapping-table" id="errors-table">
-          <thead>
-            <tr>
-              <th>File</th>
-              <th>Line</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <div style="margin-top:1.5rem;display:flex;gap:.75rem;align-items:center;">
-        <button id="approve-btn" class="btn-parse">Approve &amp; Save</button>
-        <span id="approve-status" class="approve-status"></span>
+      <div id="scan-preview" class="hidden" style="margin-top:1rem;">
+        <div class="mapping-section-label">Elements</div>
+        <div class="table-scroll">
+          <table class="mapping-table" id="elements-table">
+            <thead>
+              <tr>
+                <th>DOM id</th>
+                <th>Label</th>
+                <th>Tag</th>
+                <th>Kind</th>
+                <th>File:line</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -255,9 +232,58 @@
 
   </div><!-- /tab-mapping -->
 
+  <!-- ── Visual Builder tab ── -->
+  <div id="tab-builder" class="tab-panel hidden">
+
+    <div class="card">
+      <div class="card-title">Open your app with the overlay</div>
+      <p class="mapping-intro">
+        We serve your app at <code>/preview/...</code> and auto-inject the
+        constraint-builder overlay. Make sure you've already run
+        <strong>Inject IDs into source</strong> on the same path.
+      </p>
+
+      <div class="input-row" style="margin-top:1rem;">
+        <input
+          id="preview-source-input"
+          class="constraint-input"
+          type="text"
+          value="./test-app"
+          placeholder="Path to source (e.g. ./test-app)"
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <input
+          id="preview-entry-input"
+          class="constraint-input"
+          type="text"
+          value="index.html"
+          placeholder="Entry file (e.g. index.html)"
+          spellcheck="false"
+          autocomplete="off"
+          style="max-width: 180px;"
+        />
+        <button id="open-preview-btn" class="btn-parse">Open preview</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h2 style="margin:0;">Constraints inbox</h2>
+        <button id="clear-inbox-btn" class="btn-cancel">Clear all</button>
+      </div>
+      <div id="inbox-empty" class="inject-result" style="background:transparent;border:none;color:var(--muted);padding:0;margin-top:.5rem;">
+        Build constraints in the overlay and click <strong>Send to app</strong> — they'll appear here.
+      </div>
+      <div id="inbox-list"></div>
+    </div>
+
+  </div><!-- /tab-builder -->
+
 </div><!-- /page-wrapper -->
 
 <script src="/static/js/main.js"></script>
 <script src="/static/js/mapping.js"></script>
+<script src="/static/js/visual-builder.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-# Generated from Constraint.g4 by ANTLR 4.13.2
+# Generated from /Users/reyavir/Documents/constraint-verification/Constraint.g4 by ANTLR 4.13.2
 from antlr4 import *
 if "." in __name__:
     from .ConstraintParser import ConstraintParser

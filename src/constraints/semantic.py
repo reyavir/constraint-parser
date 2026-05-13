@@ -165,6 +165,11 @@ def _check_identifiers(ast: dict, mapping: dict, issues: list[SemanticIssue]) ->
                     f"Element '{name}' in r({name}) is not in the mapping."))
 
         elif ntype in ("CallEvent", "StatusExpr"):
+            # API auto-discovery is not in the scan_ids pipeline yet, so we
+            # only validate APIs when the user has manually populated the
+            # apis section of element_mapping.json.
+            if not apis:
+                continue
             api_name = node.get("api")
             if isinstance(api_name, str) and api_name not in apis:
                 issues.append(SemanticIssue(

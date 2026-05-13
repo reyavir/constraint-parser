@@ -1,51 +1,43 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Shop</title>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="utf-8"/>
+<title>Shop</title>
+<link href="style.css" rel="stylesheet"/>
 </head>
 <body>
-
-  <header>
-    <h1>Shop</h1>
-    <div id="cart-summary">
+<header>
+<h1 id="cv_0001">Shop</h1>
+<div id="cart-summary">
       Cart: <span id="cart-count">0</span> items —
       Total: $<span id="cart-total">0.00</span>
-    </div>
-  </header>
-
-  <main>
-
-    <!-- Product card -->
-    <div class="product-card" id="product-1">
-      <h2 id="product-name">Mechanical Keyboard</h2>
-      <p id="product-price">$120.00</p>
-
-      <label for="qty-input">Qty</label>
-      <input id="qty-input" type="number" value="1" min="1" max="99" />
-
-      <button id="add-to-cart-btn">Add to Cart</button>
-    </div>
-
-    <!-- Cart panel -->
-    <div class="cart-panel">
-      <h2>Your Cart</h2>
-      <div id="cart-list"></div>
-      <button id="checkout-btn">Checkout</button>
-      <div id="error-display"></div>
-    </div>
-
-    <!-- Search -->
-    <div class="search-panel">
-      <input id="search-input" type="text" placeholder="Search products…" />
-      <button id="search-btn">Search</button>
-      <div id="search-results"></div>
-    </div>
-
-  </main>
-
-  <script src="cart.js"></script>
-  <script src="search.js"></script>
+</div>
+</header>
+<main>
+<!-- Product card -->
+<div class="product-card" id="product-1">
+<h2 id="product-name">Mechanical Keyboard</h2>
+<p id="product-price">$120.00</p>
+<label for="qty-input" id="cv_0002">Qty</label>
+<input id="qty-input" max="99" min="1" type="number" value="1"/>
+<button id="add-to-cart-btn">Add to Cart</button>
+</div>
+<!-- Cart panel -->
+<div class="cart-panel">
+<h2 id="cv_0003">Your Cart</h2>
+<div id="cart-list"></div>
+<button id="checkout-btn">Checkout</button>
+<div id="error-display"></div>
+</div>
+<!-- Search -->
+<div class="search-panel">
+<input id="search-input" placeholder="Search products…" type="text"/>
+<button id="search-btn">Search</button>
+<div id="search-results"></div>
+</div>
+</main>
+<script src="cart.js"></script>
+<script src="search.js"></script>
 </body>
 </html>

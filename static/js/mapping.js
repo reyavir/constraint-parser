@@ -16,232 +16,184 @@ document.getElementById("go-to-mapping-btn")?.addEventListener("click", () => {
   switchTab("mapping");
 });
 
-/* ── DOM refs ─────────────────────────────────────────────────────────── */
+/* ── Element list scan ─────────────────────────────────────────────────── */
 
-const dbPathInput       = document.getElementById("db-path-input");
-const scanBtn           = document.getElementById("scan-btn");
-const scanLogCard       = document.getElementById("scan-log-card");
-const scanLog           = document.getElementById("scan-log");
-const mappingResultCard = document.getElementById("mapping-result-card");
-const mappingErrorBox   = document.getElementById("mapping-error-box");
-const approveBtn        = document.getElementById("approve-btn");
-const approveStatus     = document.getElementById("approve-status");
-
+const scanSourceInput  = document.getElementById("scan-source-input");
+const scanBtn          = document.getElementById("scan-btn");
+const scanResult       = document.getElementById("scan-result");
+const scanPreview      = document.getElementById("scan-preview");
+const mappingErrorBox  = document.getElementById("mapping-error-box");
 const elementsTableBody = document.querySelector("#elements-table tbody");
-const apisTableBody     = document.querySelector("#apis-table tbody");
-const errorsTableBody   = document.querySelector("#errors-table tbody");
-
-/* ── Scan & Generate ──────────────────────────────────────────────────── */
 
 scanBtn.addEventListener("click", async () => {
-  const dbPath = dbPathInput.value.trim();
-  if (!dbPath) return;
+  const source_dir = scanSourceInput.value.trim();
+  if (!source_dir) return;
 
-  // Reset state
-  scanLogCard.classList.remove("hidden");
-  mappingResultCard.classList.add("hidden");
+  scanBtn.disabled  = true;
+  scanBtn.innerHTML = `<span class="spinner"></span>Scanning…`;
+  scanResult.classList.add("hidden");
+  scanPreview.classList.add("hidden");
   mappingErrorBox.classList.add("hidden");
-  scanLog.innerHTML = "";
-  approveStatus.textContent = "";
-
-  setScanLoading(true);
 
   try {
-    const res  = await fetch("/mapping/generate", {
+    const res  = await fetch("/mapping/scan", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ db_path: dbPath }),
+      body:    JSON.stringify({ source_dir }),
     });
     const data = await res.json();
 
-    if (!res.ok) {
-      showMappingError(data.error || "Failed to start scan.");
-      setScanLoading(false);
+    if (!data.success) {
+      mappingErrorBox.innerHTML = `
+        <div class="error-header">
+          <span class="error-badge">Error</span>
+          <span class="error-title">Scan failed</span>
+        </div>
+        <div class="error-message">${escapeHtml(data.error || "Unknown error.")}</div>`;
+      mappingErrorBox.classList.remove("hidden");
       return;
     }
 
-    // Poll for completion
-    pollStatus();
+    scanResult.className = "inject-result inject-pass";
+    scanResult.innerHTML = `
+      <strong>Done.</strong>
+      Found ${data.elements} element${data.elements === 1 ? "" : "s"};
+      wrote <code>${escapeHtml(data.path)}</code>.`;
+    scanResult.classList.remove("hidden");
+
+    // Reload the chip reference panel on the parser tab so it picks up new ids.
+    if (typeof loadElementReference === "function") loadElementReference();
+
+    await renderPreview();
 
   } catch {
-    showMappingError("Network error — is the server running?");
-    setScanLoading(false);
+    mappingErrorBox.innerHTML = `
+      <div class="error-header">
+        <span class="error-badge">Error</span>
+        <span class="error-title">Network error</span>
+      </div>
+      <div class="error-message">Is the server running?</div>`;
+    mappingErrorBox.classList.remove("hidden");
+  } finally {
+    scanBtn.disabled  = false;
+    scanBtn.innerHTML = "Refresh element list";
   }
 });
 
-let _pollTimer = null;
+async function renderPreview() {
+  try {
+    const res  = await fetch("/mapping/elements");
+    const data = await res.json();
+    if (!data.available) return;
+    // /mapping/elements returns id+label only; for tag/kind/file/line we read
+    // the full mapping file via /mapping/raw.
+    const fullRes  = await fetch("/mapping/raw");
+    const fullData = await fullRes.json();
+    const elements = fullData.elements || {};
 
-function pollStatus() {
-  _pollTimer = setInterval(async () => {
-    try {
-      const res  = await fetch("/mapping/status");
-      const data = await res.json();
+    elementsTableBody.innerHTML = Object.entries(elements)
+      .map(([id, el]) => `
+        <tr>
+          <td class="mono">${escapeHtml(id)}</td>
+          <td>${escapeHtml(el.label || "—")}</td>
+          <td class="mono">${escapeHtml(el.tag || "—")}</td>
+          <td><span class="kind-badge kind-${el.kind || "component"}">${escapeHtml(el.kind || "—")}</span></td>
+          <td class="muted file-cell">${escapeHtml(el.file || "—")}:${el.line ?? ""}</td>
+        </tr>`).join("");
 
-      // Update log
-      scanLog.innerHTML = data.log
-        .map(line => `<div class="log-line">${escapeHtml(line)}</div>`)
-        .join("");
-      scanLog.scrollTop = scanLog.scrollHeight;
-
-      if (data.status === "done") {
-        clearInterval(_pollTimer);
-        setScanLoading(false);
-        renderDraftMapping(data.result);
-      } else if (data.status === "error") {
-        clearInterval(_pollTimer);
-        setScanLoading(false);
-        showMappingError(data.error || "Unknown error during scan.");
-      }
-    } catch {
-      clearInterval(_pollTimer);
-      setScanLoading(false);
-      showMappingError("Lost connection to server while polling.");
-    }
-  }, 1500);
+    scanPreview.classList.remove("hidden");
+  } catch {
+    /* ignore — preview is a nice-to-have */
+  }
 }
 
-/* ── Render draft mapping ─────────────────────────────────────────────── */
+// Show whatever's currently saved on first load.
+renderPreview();
 
-// Holds the current draft so Approve can read it
-let _currentDraft = null;
 
-function renderDraftMapping(draft) {
-  _currentDraft = draft;
+/* ── Inject IDs into source ──────────────────────────────────────────── */
+const sourceInput   = document.getElementById("source-path-input");
+const injectBtn     = document.getElementById("inject-btn");
+const injectWarning = document.getElementById("inject-warning");
+const injectResult  = document.getElementById("inject-result");
 
-  // Elements
-  elementsTableBody.innerHTML = Object.entries(draft.elements || {})
-    .map(([name, el]) => `
-      <tr data-original-name="${escapeAttr(name)}">
-        <td>
-          <input
-            class="name-input"
-            type="text"
-            value="${escapeAttr(name)}"
-            data-key="element"
-            data-original="${escapeAttr(name)}"
-          />
-        </td>
-        <td class="mono">${escapeHtml(el.selector || "—")}</td>
-        <td class="mono">${escapeHtml(el.tag || "—")}</td>
-        <td>
-          <span class="kind-badge kind-${el.kind || "action"}">
-            ${escapeHtml(el.kind || "—")}
-          </span>
-        </td>
-        <td class="mono muted">
-          ${el.kind === "action"
-            ? escapeHtml((el.events || []).join(", ") || "—")
-            : escapeHtml(el.read_property || "—")}
-        </td>
-        <td class="muted file-cell">${escapeHtml(el.file || "—")}:${el.line ?? ""}</td>
-      </tr>
-    `)
-    .join("");
+injectBtn.addEventListener("click", () => runInject(false));
 
-  // APIs
-  apisTableBody.innerHTML = Object.entries(draft.apis || {})
-    .map(([name, api]) => `
-      <tr data-original-name="${escapeAttr(name)}">
-        <td>
-          <input
-            class="name-input"
-            type="text"
-            value="${escapeAttr(name)}"
-            data-key="api"
-            data-original="${escapeAttr(name)}"
-          />
-        </td>
-        <td class="mono">${escapeHtml(api.endpoint || "—")}</td>
-        <td class="mono">${escapeHtml(api.method || "—")}</td>
-        <td class="muted file-cell">${escapeHtml(api.file || "—")}:${api.line ?? ""}</td>
-      </tr>
-    `)
-    .join("");
+async function runInject(confirmed) {
+  const source_dir = sourceInput.value.trim();
+  if (!source_dir) return;
 
-  // Error handlers
-  errorsTableBody.innerHTML = (draft.error_handlers || [])
-    .map(e => `
-      <tr>
-        <td class="muted file-cell">${escapeHtml(e.file || "—")}</td>
-        <td class="mono muted">${e.line ?? "—"}</td>
-      </tr>
-    `)
-    .join("");
-
-  mappingResultCard.classList.remove("hidden");
-}
-
-/* ── Approve & Save ───────────────────────────────────────────────────── */
-
-approveBtn.addEventListener("click", async () => {
-  if (!_currentDraft) return;
-
-  // Rebuild mapping with any renamed keys
-  const finalMapping = {
-    elements:       {},
-    apis:           {},
-    error_handlers: _currentDraft.error_handlers || [],
-  };
-
-  document.querySelectorAll(".name-input[data-key='element']").forEach(input => {
-    const original = input.dataset.original;
-    const newName  = input.value.trim() || original;
-    finalMapping.elements[newName] = _currentDraft.elements[original];
-  });
-
-  document.querySelectorAll(".name-input[data-key='api']").forEach(input => {
-    const original = input.dataset.original;
-    const newName  = input.value.trim() || original;
-    finalMapping.apis[newName] = _currentDraft.apis[original];
-  });
-
-  approveBtn.disabled = true;
-  approveStatus.textContent = "Saving…";
+  injectBtn.disabled  = true;
+  injectBtn.innerHTML = `<span class="spinner"></span>Working…`;
+  injectWarning.classList.add("hidden");
+  injectResult.classList.add("hidden");
 
   try {
-    const res  = await fetch("/mapping/approve", {
+    const res  = await fetch("/instrument", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ mapping: finalMapping }),
+      body:    JSON.stringify({ source_dir, confirmed }),
     });
     const data = await res.json();
 
-    if (res.ok) {
-      approveStatus.textContent = `Saved to ${data.path}`;
-      approveStatus.className   = "approve-status approve-ok";
-      loadElementReference();  // refresh parser tab reference panel
-    } else {
-      approveStatus.textContent = data.error || "Save failed.";
-      approveStatus.className   = "approve-status approve-err";
+    if (data.needs_confirmation && data.reason === "no_git") {
+      injectWarning.innerHTML = `
+        <div class="inject-warning-title">No git repository found</div>
+        <div class="inject-warning-body">
+          The script will modify your source files directly at
+          <code>${escapeHtml(data.path)}</code>.
+          A <code>.bak</code> copy will be written alongside every modified
+          file before changes are applied.
+        </div>
+        <div class="inject-warning-actions">
+          <button id="inject-cancel"  class="btn-cancel">Cancel</button>
+          <button id="inject-proceed" class="btn-parse">Proceed</button>
+        </div>`;
+      injectWarning.classList.remove("hidden");
+      document.getElementById("inject-cancel").onclick  = () => injectWarning.classList.add("hidden");
+      document.getElementById("inject-proceed").onclick = () => runInject(true);
+      return;
     }
+
+    if (!data.success) {
+      injectResult.className = "inject-result inject-fail";
+      injectResult.innerHTML = `<strong>Error:</strong> ${escapeHtml(data.error || "Unknown error.")}`;
+      injectResult.classList.remove("hidden");
+      return;
+    }
+
+    const fileList = data.files_changed.length
+      ? `<ul class="inject-file-list">${
+          data.files_changed.map(f => `<li>${escapeHtml(f)}</li>`).join("")
+        }</ul>`
+      : `<p>No files needed changes.</p>`;
+
+    const backupNote = data.backups_made && data.backups_made.length
+      ? `<p class="inject-backup-note">${data.backups_made.length} backup file(s) written.</p>`
+      : "";
+
+    injectResult.className = "inject-result inject-pass";
+    injectResult.innerHTML = `
+      <strong>Done.</strong>
+      Added ${data.html_ids_added} HTML id${data.html_ids_added === 1 ? "" : "s"}
+      and ${data.js_ids_added} JS id${data.js_ids_added === 1 ? "" : "s"}
+      across ${data.files_changed.length} file${data.files_changed.length === 1 ? "" : "s"}.
+      ${backupNote}
+      ${fileList}`;
+    injectResult.classList.remove("hidden");
+
   } catch {
-    approveStatus.textContent = "Network error.";
-    approveStatus.className   = "approve-status approve-err";
+    injectResult.className = "inject-result inject-fail";
+    injectResult.innerHTML = `<strong>Network error</strong> — is the server running?`;
+    injectResult.classList.remove("hidden");
   } finally {
-    approveBtn.disabled = false;
+    injectBtn.disabled  = false;
+    injectBtn.innerHTML = "Add IDs";
   }
-});
+}
+
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
-
-function setScanLoading(on) {
-  scanBtn.disabled   = on;
-  scanBtn.innerHTML  = on
-    ? `<span class="spinner"></span>Scanning…`
-    : "Scan &amp; Generate";
-}
-
-function showMappingError(msg) {
-  mappingErrorBox.innerHTML = `
-    <div class="error-header">
-      <span class="error-badge">Error</span>
-      <span class="error-title">Scan failed</span>
-    </div>
-    <div class="error-message">${escapeHtml(msg)}</div>
-  `;
-  mappingErrorBox.classList.remove("hidden");
-}
-
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")

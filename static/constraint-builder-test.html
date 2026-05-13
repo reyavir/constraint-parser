@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Constraint Builder — scratch demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 40px 60px;
+      color: #1e293b;
+      max-width: 700px;
+    }
+    h1 { margin: 0 0 24px 0; font-size: 24px; }
+    h2 { margin: 24px 0 12px 0; font-size: 16px; color: #64748b; }
+    .group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    button, input {
+      font: inherit; padding: 8px 14px; border-radius: 6px;
+      border: 1px solid #cbd5e1; background: #fff; cursor: pointer;
+    }
+    button:hover { background: #f1f5f9; }
+    .display { padding: 8px 14px; background: #f1f5f9; border-radius: 6px; font-weight: 500; }
+    p.help { color: #64748b; font-size: 14px; line-height: 1.55; }
+  </style>
+</head>
+<body>
+  <h1 id="cv_0001">Constraint Builder — scratch demo</h1>
+  <p class="help" id="cv_0002">
+    Use this page to sanity-check <code>constraint-builder.js</code>. Click the
+    overlay's <strong>Select action</strong> button, then click any of the buttons
+    below — notice the app's own <code>alert()</code> handler does <em>not</em> fire
+    while selection mode is active.
+  </p>
+
+  <h2 id="cv_0003">Actions</h2>
+  <div class="group">
+    <button id="cv_0010">Add to cart</button>
+    <button id="cv_0011">Checkout</button>
+    <input  id="cv_0012" placeholder="Search…" />
+  </div>
+
+  <h2 id="cv_0004">Display elements</h2>
+  <div class="group">
+    <span id="cv_0020" class="display">Cart count: 3</span>
+    <span id="cv_0021" class="display">Total: $42.00</span>
+  </div>
+  <p id="cv_0030" class="help">Status: ready</p>
+
+  <script>
+    // Each app button has its own click handler — these should be suppressed
+    // during selection mode (capture-phase + stopImmediatePropagation in the
+    // overlay's selection handler).
+    document.getElementById('cv_0010').addEventListener('click',
+      () => alert('app handler fired — this should NOT show during selection!'));
+    document.getElementById('cv_0011').addEventListener('click',
+      () => alert('app handler fired — this should NOT show during selection!'));
+  </script>
+
+  <script src="/static/js/constraint-builder.js"></script>
+</body>
+</html>

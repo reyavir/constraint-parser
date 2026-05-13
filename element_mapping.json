@@ -1,144 +1,124 @@
 {
   "elements": {
-    "addToCartBtn": {
-      "events": [
-        "click"
-      ],
-      "file": "index.html",
-      "kind": "action",
-      "line": 28,
-      "role": "Btn",
-      "selector": "#add-to-cart-btn",
-      "tag": "button"
-    },
-    "cartCountDisplay": {
-      "file": "cart.js",
+    "cv_0001": {
+      "label": "Shop",
+      "tag": "h1",
       "kind": "component",
-      "line": 33,
-      "read_property": "textContent",
-      "role": "Display",
-      "selector": ".cartCount",
-      "tag": "div"
-    },
-    "cartListDisplay": {
-      "file": "cart.js",
-      "kind": "component",
-      "line": 35,
-      "read_property": "innerHTML",
-      "role": "Display",
-      "selector": ".cartList",
-      "tag": "div"
-    },
-    "cartTotalDisplay": {
-      "file": "cart.js",
-      "kind": "component",
-      "line": 34,
-      "read_property": "textContent",
-      "role": "Display",
-      "selector": ".cartTotal",
-      "tag": "div"
-    },
-    "checkoutBtn": {
-      "events": [
-        "click"
-      ],
       "file": "index.html",
-      "kind": "action",
-      "line": 35,
-      "role": "Btn",
-      "selector": "#checkout-btn",
-      "tag": "button"
+      "line": 11
     },
-    "errorText": {
-      "file": "cart.js",
+    "cart-summary": {
+      "label": "Cart: 0 items \u2014\n      Total: $",
+      "tag": "div",
       "kind": "component",
-      "line": 36,
-      "read_property": "textContent",
-      "role": "Error",
-      "selector": ".errorDisplay",
-      "tag": "div"
-    },
-    "qtyInput": {
-      "events": [
-        "input",
-        "change"
-      ],
       "file": "index.html",
-      "kind": "action",
-      "line": 26,
-      "role": "Input",
-      "selector": "#qty-input",
-      "tag": "input"
+      "line": 12
     },
-    "searchBtn": {
-      "events": [
-        "click"
-      ],
-      "file": "index.html",
-      "kind": "action",
-      "line": 42,
-      "role": "Btn",
-      "selector": "#search-btn",
-      "tag": "button"
-    },
-    "searchInput": {
-      "events": [
-        "input",
-        "change"
-      ],
-      "file": "index.html",
-      "kind": "action",
-      "line": 41,
-      "role": "Input",
-      "selector": "#search-input",
-      "tag": "input"
-    },
-    "searchResultsList": {
-      "file": "search.js",
+    "cart-count": {
+      "label": "0",
+      "tag": "span",
       "kind": "component",
-      "line": 20,
-      "read_property": "innerHTML",
-      "role": "List",
-      "selector": ".searchResults",
-      "tag": "div"
-    }
-  },
-  "apis": {
-    "analyticsApi": {
-      "endpoint": "/api/analytics",
-      "file": "cart.js",
-      "line": 77,
-      "method": "POST"
+      "file": "index.html",
+      "line": 14
     },
-    "cartApi": {
-      "endpoint": "/api/cart",
-      "file": "cart.js",
-      "line": 18,
-      "method": "POST"
+    "cart-total": {
+      "label": "0.00",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 15
     },
-    "checkoutApi": {
-      "endpoint": "/api/checkout",
-      "file": "cart.js",
-      "line": 47,
-      "method": "POST"
-    }
-  },
-  "error_handlers": [
-    {
-      "file": "search.js",
+    "product-1": {
+      "label": "Mechanical Keyboard $120.00 Qt",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 20
+    },
+    "product-name": {
+      "label": "Mechanical Keyboard",
+      "tag": "h2",
+      "kind": "component",
+      "file": "index.html",
+      "line": 21
+    },
+    "product-price": {
+      "label": "$120.00",
+      "tag": "p",
+      "kind": "component",
+      "file": "index.html",
       "line": 22
     },
-    {
-      "file": "cart.js",
+    "cv_0002": {
+      "label": "Qty",
+      "tag": "label",
+      "kind": "component",
+      "file": "index.html",
+      "line": 23
+    },
+    "qty-input": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
+      "line": 24
+    },
+    "add-to-cart-btn": {
+      "label": "Add to Cart",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 25
+    },
+    "cv_0003": {
+      "label": "Your Cart",
+      "tag": "h2",
+      "kind": "component",
+      "file": "index.html",
+      "line": 29
+    },
+    "cart-list": {
+      "label": "",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 30
+    },
+    "checkout-btn": {
+      "label": "Checkout",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 31
+    },
+    "error-display": {
+      "label": "",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 32
+    },
+    "search-input": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
+      "line": 36
+    },
+    "search-btn": {
+      "label": "Search",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 37
+    },
+    "search-results": {
+      "label": "",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
       "line": 38
-    },
-    {
-      "file": "cart.js",
-      "line": 65
-    },
-    {
-      "file": "cart.js",
-      "line": 82
     }
-  ]
+  },
+  "apis": {}
 }
