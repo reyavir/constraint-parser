@@ -23,9 +23,22 @@ from urllib.parse import quote
 
 _OVERLAY_TAG = '<script src="/static/js/constraint-builder.js"></script>'
 
-# Match src="/x" or src='/x' — absolute paths only, not URLs or //cdn paths.
-_SRC_RE  = re.compile(r"""(\bsrc\s*=\s*["'])(/[^"'>\s]+)(["'])""")
-_HREF_RE = re.compile(r"""(\bhref\s*=\s*["'])(/[^"'>\s]+\.css)(["'])""")
+# Match every src= and href= value (relative OR absolute). External URLs,
+# fragments, and other non-navigable schemes are filtered out inside the
+# rewriter rather than at the regex level.
+_ATTR_RE = re.compile(r"""(\b(?:src|href)\s*=\s*["'])([^"'>]+)(["'])""")
+
+_SKIP_PREFIXES = (
+    "//",         # protocol-relative
+    "http://",
+    "https://",
+    "data:",
+    "blob:",
+    "mailto:",
+    "tel:",
+    "javascript:",
+    "#",          # pure fragment
+)
 
 
 def inject_script(html: str) -> str:
@@ -40,18 +53,40 @@ def inject_script(html: str) -> str:
 
 
 def rewrite_absolute_paths(html: str, source_dir: str) -> str:
-    """Rewrite absolute src=/href= paths so they resolve under /preview/."""
+    """
+    Rewrite every src=/href= so the browser routes it back through
+    /preview/...?source=<dir>:
+
+        href="style.css"      → href="/preview/style.css?source=<dir>"
+        src="./cart.js"       → src="/preview/cart.js?source=<dir>"
+        src="js/util.js"      → src="/preview/js/util.js?source=<dir>"
+        href="/x.css"         → href="/preview/x.css?source=<dir>"
+        href="page.html#bar"  → href="/preview/page.html?source=<dir>#bar"
+        href="https://x.com"  → unchanged
+        href="#section"       → unchanged
+    """
     encoded = quote(source_dir, safe="")
 
     def _rewrite(match: re.Match) -> str:
-        attr_open, path, attr_close = match.group(1), match.group(2), match.group(3)
-        # External URLs (//, http, https) were already excluded by the regex,
-        # but double-check defensively in case the regex is widened later.
-        if path.startswith(("//", "http://", "https://")):
+        attr_open, value, attr_close = match.group(1), match.group(2), match.group(3)
+        if value.startswith(_SKIP_PREFIXES):
             return match.group(0)
-        new_path = f"/preview{path}?source={encoded}"
-        return f"{attr_open}{new_path}{attr_close}"
 
-    html = _SRC_RE.sub(_rewrite, html)
-    html = _HREF_RE.sub(_rewrite, html)
-    return html
+        # Preserve fragment verbatim — it goes after the query string.
+        path, frag = value, ""
+        if "#" in path:
+            path, frag_part = path.split("#", 1)
+            frag = f"#{frag_part}"
+
+        # Strip leading "./" so we don't end up with /preview/./foo
+        if path.startswith("./"):
+            path = path[2:]
+
+        if path.startswith("/"):
+            new_path = f"/preview{path}"
+        else:
+            new_path = f"/preview/{path}"
+
+        return f"{attr_open}{new_path}?source={encoded}{frag}{attr_close}"
+
+    return _ATTR_RE.sub(_rewrite, html)

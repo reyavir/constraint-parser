@@ -1,123 +1,270 @@
 {
   "elements": {
     "cv_0001": {
-      "label": "Shop",
-      "tag": "h1",
+      "label": "",
+      "tag": "element",
       "kind": "component",
-      "file": "index.html",
-      "line": 11
+      "file": "dashboard.js",
+      "line": 101
     },
-    "cart-summary": {
-      "label": "Cart: 0 items \u2014\n      Total: $",
-      "tag": "div",
+    "cv_0002": {
+      "label": "",
+      "tag": "element",
+      "kind": "component",
+      "file": "dashboard.js",
+      "line": 105
+    },
+    "cv_0003": {
+      "label": "",
+      "tag": "element",
+      "kind": "component",
+      "file": "dashboard.js",
+      "line": 110
+    },
+    "cv_0004": {
+      "label": "",
+      "tag": "element",
+      "kind": "component",
+      "file": "dashboard.js",
+      "line": 115
+    },
+    "cv_0005": {
+      "label": "",
+      "tag": "element",
+      "kind": "component",
+      "file": "dashboard.js",
+      "line": 121
+    },
+    "cv_0006": {
+      "label": "",
+      "tag": "element",
+      "kind": "component",
+      "file": "dashboard.js",
+      "line": 123
+    },
+    "dashboard-title": {
+      "label": "Sales dashboard",
+      "tag": "h1",
       "kind": "component",
       "file": "index.html",
       "line": 12
     },
-    "cart-count": {
-      "label": "0",
-      "tag": "span",
+    "dashboard-tagline": {
+      "label": "How your sales are doing",
+      "tag": "p",
       "kind": "component",
       "file": "index.html",
-      "line": 14
+      "line": 13
     },
-    "cart-total": {
-      "label": "0.00",
-      "tag": "span",
+    "stat-card-revenue": {
+      "label": "Total revenue",
+      "tag": "article",
       "kind": "component",
       "file": "index.html",
-      "line": 15
+      "line": 17
     },
-    "product-1": {
-      "label": "Mechanical Keyboard $120.00 Qt",
-      "tag": "div",
-      "kind": "component",
-      "file": "index.html",
-      "line": 20
-    },
-    "product-name": {
-      "label": "Mechanical Keyboard",
+    "stat-revenue-label": {
+      "label": "Total revenue",
       "tag": "h2",
+      "kind": "component",
+      "file": "index.html",
+      "line": 18
+    },
+    "stat-total-revenue": {
+      "label": "$0.00",
+      "tag": "p",
+      "kind": "component",
+      "file": "index.html",
+      "line": 19
+    },
+    "stat-card-orders": {
+      "label": "Number of orders",
+      "tag": "article",
       "kind": "component",
       "file": "index.html",
       "line": 21
     },
-    "product-price": {
-      "label": "$120.00",
-      "tag": "p",
+    "stat-orders-label": {
+      "label": "Number of orders",
+      "tag": "h2",
       "kind": "component",
       "file": "index.html",
       "line": 22
     },
-    "cv_0002": {
-      "label": "Qty",
-      "tag": "label",
+    "stat-order-count": {
+      "label": "0",
+      "tag": "p",
       "kind": "component",
       "file": "index.html",
       "line": 23
     },
-    "qty-input": {
-      "label": "",
-      "tag": "input",
-      "kind": "action",
-      "file": "index.html",
-      "line": 24
-    },
-    "add-to-cart-btn": {
-      "label": "Add to Cart",
-      "tag": "button",
-      "kind": "action",
+    "stat-card-aov": {
+      "label": "Average order value",
+      "tag": "article",
+      "kind": "component",
       "file": "index.html",
       "line": 25
     },
-    "cv_0003": {
-      "label": "Your Cart",
+    "stat-aov-label": {
+      "label": "Average order value",
       "tag": "h2",
       "kind": "component",
       "file": "index.html",
-      "line": 29
+      "line": 26
     },
-    "cart-list": {
-      "label": "",
+    "stat-avg-order-value": {
+      "label": "$0.00",
+      "tag": "p",
+      "kind": "component",
+      "file": "index.html",
+      "line": 27
+    },
+    "cv_0007": {
+      "label": "Search customer",
       "tag": "div",
       "kind": "component",
       "file": "index.html",
-      "line": 30
-    },
-    "checkout-btn": {
-      "label": "Checkout",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
       "line": 31
     },
-    "error-display": {
-      "label": "",
-      "tag": "div",
+    "label-customer-search": {
+      "label": "Search customer",
+      "tag": "label",
       "kind": "component",
       "file": "index.html",
       "line": 32
     },
-    "search-input": {
+    "customer-search": {
       "label": "",
       "tag": "input",
       "kind": "action",
       "file": "index.html",
-      "line": 36
+      "line": 33
     },
-    "search-btn": {
-      "label": "Search",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 37
-    },
-    "search-results": {
-      "label": "",
+    "cv_0008": {
+      "label": "From date",
       "tag": "div",
       "kind": "component",
       "file": "index.html",
+      "line": 36
+    },
+    "label-date-from": {
+      "label": "From date",
+      "tag": "label",
+      "kind": "component",
+      "file": "index.html",
+      "line": 37
+    },
+    "date-from": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
       "line": 38
+    },
+    "cv_0009": {
+      "label": "To date",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 40
+    },
+    "label-date-to": {
+      "label": "To date",
+      "tag": "label",
+      "kind": "component",
+      "file": "index.html",
+      "line": 41
+    },
+    "date-to": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
+      "line": 42
+    },
+    "cv_0010": {
+      "label": "Order status All statuses Pend",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 45
+    },
+    "label-status-filter": {
+      "label": "Order status",
+      "tag": "label",
+      "kind": "component",
+      "file": "index.html",
+      "line": 46
+    },
+    "status-filter": {
+      "label": "All statuses",
+      "tag": "select",
+      "kind": "action",
+      "file": "index.html",
+      "line": 47
+    },
+    "clear-filters-btn": {
+      "label": "Clear filters",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 54
+    },
+    "recent-orders-heading": {
+      "label": "Recent orders",
+      "tag": "h2",
+      "kind": "component",
+      "file": "index.html",
+      "line": 57
+    },
+    "orders-table": {
+      "label": "Customer Order Amount Status",
+      "tag": "table",
+      "kind": "component",
+      "file": "index.html",
+      "line": 59
+    },
+    "th-customer": {
+      "label": "Customer",
+      "tag": "th",
+      "kind": "component",
+      "file": "index.html",
+      "line": 62
+    },
+    "th-order": {
+      "label": "Order",
+      "tag": "th",
+      "kind": "component",
+      "file": "index.html",
+      "line": 63
+    },
+    "th-amount": {
+      "label": "Amount",
+      "tag": "th",
+      "kind": "component",
+      "file": "index.html",
+      "line": 64
+    },
+    "th-status": {
+      "label": "Status",
+      "tag": "th",
+      "kind": "component",
+      "file": "index.html",
+      "line": 65
+    },
+    "orders-table-body": {
+      "label": "",
+      "tag": "tbody",
+      "kind": "component",
+      "file": "index.html",
+      "line": 68
+    },
+    "orders-empty": {
+      "label": "No orders match your filters.",
+      "tag": "p",
+      "kind": "component",
+      "file": "index.html",
+      "line": 71
     }
   },
   "apis": {}

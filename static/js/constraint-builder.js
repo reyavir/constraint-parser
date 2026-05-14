@@ -77,9 +77,15 @@
   }
 
   // ── Constraint formula ────────────────────────────────────────────────
-  function buildConstraint(actionId, targetIds) {
-    if (!actionId || targetIds.length === 0) return null;
-    const writes = targetIds.map(id => `w(${id})`).join(' AND ');
+  // *targets* is the full state.targets array (objects with id + op).
+  // targets[0].op is unused; targets[i].op for i > 0 joins target i-1 to i.
+  function buildConstraint(actionId, targets) {
+    if (!actionId || targets.length === 0) return null;
+    let writes = `w(${targets[0].id})`;
+    for (let i = 1; i < targets.length; i++) {
+      const op = targets[i].op || 'AND';
+      writes = `${writes} ${op} w(${targets[i].id})`;
+    }
     return `P(${writes} | A(${actionId})) = 1`;
   }
 
@@ -190,6 +196,32 @@
         flex-shrink: 0;
       }
       #${PANEL_ID} .__cb_chip ._remove:hover { color: #dc2626; }
+
+      #${PANEL_ID} .__cb_op_row {
+        display: flex;
+        align-items: center;
+        margin: 2px 0 2px 12px;
+      }
+      #${PANEL_ID} .__cb_op_row::before {
+        content: "";
+        display: inline-block;
+        width: 10px;
+        border-top: 1px dashed #cbd5e1;
+        margin-right: 6px;
+      }
+      #${PANEL_ID} .__cb_op_select {
+        font: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .04em;
+        background: #fff;
+        color: ${HL_COLOR};
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        padding: 1px 4px;
+        cursor: pointer;
+      }
+      #${PANEL_ID} .__cb_op_select:hover { border-color: ${HL_COLOR}; }
 
       #${PANEL_ID} .__cb_empty {
         font-size: 12px;
@@ -312,7 +344,8 @@
     `;
 
     // Wire up event delegation each render (innerHTML wipes listeners).
-    panel.addEventListener('click', onPanelClick);
+    panel.addEventListener('click',  onPanelClick);
+    panel.addEventListener('change', onPanelChange);
     const header = panel.querySelector('.__cb_header');
     if (header) header.addEventListener('mousedown', startDrag);
   }
@@ -320,7 +353,7 @@
   function renderBuild() {
     const a  = state.action;
     const ts = state.targets;
-    const preview = buildConstraint(a && a.id, ts.map(t => t.id));
+    const preview = buildConstraint(a && a.id, ts);
 
     const actionRow = a
       ? `<div class="__cb_chip">
@@ -329,8 +362,18 @@
          </div>`
       : `<div class="__cb_empty">No action selected.</div>`;
 
+    const opSelect = (idx, current) => `
+      <div class="__cb_op_row">
+        <select class="__cb_op_select" data-action="change_op" data-idx="${idx}">
+          <option value="AND" ${current === 'AND' ? 'selected' : ''}>AND</option>
+          <option value="OR"  ${current === 'OR'  ? 'selected' : ''}>OR</option>
+          <option value="XOR" ${current === 'XOR' ? 'selected' : ''}>XOR</option>
+        </select>
+      </div>`;
+
     const targetRows = ts.length
       ? ts.map((t, i) => `
+          ${i > 0 ? opSelect(i, t.op || 'AND') : ''}
           <div class="__cb_chip">
             <span>${escapeHtml(t.label)}</span>
             <span class="_remove" data-action="remove_target" data-idx="${i}" title="Remove">×</span>
@@ -418,6 +461,18 @@
   }
 
   // ── Event handlers ────────────────────────────────────────────────────
+  function onPanelChange(e) {
+    if (e.target.tagName !== 'SELECT') return;
+    if (e.target.dataset.action === 'change_op') {
+      const idx = Number(e.target.dataset.idx);
+      const op  = e.target.value;
+      if (state.targets[idx]) {
+        state.targets[idx].op = op;
+        render();
+      }
+    }
+  }
+
   function onPanelClick(e) {
     const target = e.target.closest('[data-action]');
     if (!target) return;
@@ -450,7 +505,9 @@
             setStatus('error', `Target ${el.id} is already in the list.`);
             return;
           }
-          state.targets.push({ id: el.id, label: getDisplayLabel(el) });
+          // New target joins the previous one with AND by default — the
+          // user can change it via the dropdown that renders above the chip.
+          state.targets.push({ id: el.id, label: getDisplayLabel(el), op: 'AND' });
           render();
         });
         break;
@@ -460,6 +517,10 @@
         break;
       case 'save':
         saveConstraint();
+        break;
+      case 'change_op':
+        // Handled in onPanelChange — capture-phase click on the <select> would
+        // arrive here too, but ignore it to avoid double-handling.
         break;
       case 'remove_saved':
         state.saved.splice(Number(target.dataset.idx), 1);
@@ -506,7 +567,7 @@
   function saveConstraint() {
     const a  = state.action;
     const ts = state.targets;
-    const formula = buildConstraint(a && a.id, ts.map(t => t.id));
+    const formula = buildConstraint(a && a.id, ts);
     if (!formula) {
       setStatus('error', 'Pick an action and at least one target before saving.');
       return;
@@ -514,7 +575,7 @@
     state.saved.push({
       constraint: formula,
       action:     { id: a.id, label: a.label },
-      targets:    ts.map(t => ({ id: t.id, label: t.label })),
+      targets:    ts.map(t => ({ id: t.id, label: t.label, op: t.op || null })),
       created_at: new Date().toISOString(),
     });
     persist();

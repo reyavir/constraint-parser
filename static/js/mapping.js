@@ -18,12 +18,10 @@ document.getElementById("go-to-mapping-btn")?.addEventListener("click", () => {
 
 /* ── Element list scan ─────────────────────────────────────────────────── */
 
-const scanSourceInput  = document.getElementById("scan-source-input");
-const scanBtn          = document.getElementById("scan-btn");
-const scanResult       = document.getElementById("scan-result");
-const scanPreview      = document.getElementById("scan-preview");
-const mappingErrorBox  = document.getElementById("mapping-error-box");
-const elementsTableBody = document.querySelector("#elements-table tbody");
+const scanSourceInput = document.getElementById("scan-source-input");
+const scanBtn         = document.getElementById("scan-btn");
+const scanResult      = document.getElementById("scan-result");
+const mappingErrorBox = document.getElementById("mapping-error-box");
 
 scanBtn.addEventListener("click", async () => {
   const source_dir = scanSourceInput.value.trim();
@@ -32,7 +30,6 @@ scanBtn.addEventListener("click", async () => {
   scanBtn.disabled  = true;
   scanBtn.innerHTML = `<span class="spinner"></span>Scanning…`;
   scanResult.classList.add("hidden");
-  scanPreview.classList.add("hidden");
   mappingErrorBox.classList.add("hidden");
 
   try {
@@ -64,8 +61,6 @@ scanBtn.addEventListener("click", async () => {
     // Reload the chip reference panel on the parser tab so it picks up new ids.
     if (typeof loadElementReference === "function") loadElementReference();
 
-    await renderPreview();
-
   } catch {
     mappingErrorBox.innerHTML = `
       <div class="error-header">
@@ -79,36 +74,6 @@ scanBtn.addEventListener("click", async () => {
     scanBtn.innerHTML = "Refresh element list";
   }
 });
-
-async function renderPreview() {
-  try {
-    const res  = await fetch("/mapping/elements");
-    const data = await res.json();
-    if (!data.available) return;
-    // /mapping/elements returns id+label only; for tag/kind/file/line we read
-    // the full mapping file via /mapping/raw.
-    const fullRes  = await fetch("/mapping/raw");
-    const fullData = await fullRes.json();
-    const elements = fullData.elements || {};
-
-    elementsTableBody.innerHTML = Object.entries(elements)
-      .map(([id, el]) => `
-        <tr>
-          <td class="mono">${escapeHtml(id)}</td>
-          <td>${escapeHtml(el.label || "—")}</td>
-          <td class="mono">${escapeHtml(el.tag || "—")}</td>
-          <td><span class="kind-badge kind-${el.kind || "component"}">${escapeHtml(el.kind || "—")}</span></td>
-          <td class="muted file-cell">${escapeHtml(el.file || "—")}:${el.line ?? ""}</td>
-        </tr>`).join("");
-
-    scanPreview.classList.remove("hidden");
-  } catch {
-    /* ignore — preview is a nice-to-have */
-  }
-}
-
-// Show whatever's currently saved on first load.
-renderPreview();
 
 
 /* ── Inject IDs into source ──────────────────────────────────────────── */

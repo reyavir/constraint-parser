@@ -8,32 +8,33 @@
 </head>
 <body>
 <header>
-<h1 id="cv_0001">Shop</h1>
-<div id="cart-summary">
-      Cart: <span id="cart-count">0</span> items —
-      Total: $<span id="cart-total">0.00</span>
+<h1 data-cv-label="Shop" id="cv_0001">Shop</h1>
+<div data-cv-label="Cart: 0 items —
+      Total: $" id="cart-summary">
+      Cart: <span data-cv-label="0" id="cart-count">0</span> items —
+      Total: $<span data-cv-label="0.00" id="cart-total">0.00</span>
 </div>
 </header>
 <main>
 <!-- Product card -->
-<div class="product-card" id="product-1">
-<h2 id="product-name">Mechanical Keyboard</h2>
-<p id="product-price">$120.00</p>
-<label for="qty-input" id="cv_0002">Qty</label>
+<div class="product-card" data-cv-label="Mechanical Keyboard $120.00 Qt" id="product-1">
+<h2 data-cv-label="Mechanical Keyboard" id="product-name">Mechanical Keyboard</h2>
+<p data-cv-label="$120.00" id="product-price">$120.00</p>
+<label data-cv-label="Qty" for="qty-input" id="cv_0002">Qty</label>
 <input id="qty-input" max="99" min="1" type="number" value="1"/>
-<button id="add-to-cart-btn">Add to Cart</button>
+<button data-cv-label="Add to Cart" id="add-to-cart-btn">Add to Cart</button>
 </div>
 <!-- Cart panel -->
 <div class="cart-panel">
-<h2 id="cv_0003">Your Cart</h2>
+<h2 data-cv-label="Your Cart" id="cv_0003">Your Cart</h2>
 <div id="cart-list"></div>
-<button id="checkout-btn">Checkout</button>
+<button data-cv-label="Checkout" id="checkout-btn">Checkout</button>
 <div id="error-display"></div>
 </div>
 <!-- Search -->
 <div class="search-panel">
 <input id="search-input" placeholder="Search products…" type="text"/>
-<button id="search-btn">Search</button>
+<button data-cv-label="Search" id="search-btn">Search</button>
 <div id="search-results"></div>
 </div>
 </main>

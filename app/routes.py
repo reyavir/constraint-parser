@@ -122,15 +122,6 @@ def verify_constraint():
         return jsonify({"success": False, "error": str(exc)}), 500
 
 
-@bp.get("/mapping/raw")
-def mapping_raw():
-    """Full mapping file contents — used by the Element Mapping tab preview."""
-    if not MAPPING_FILE.exists():
-        return jsonify({"available": False})
-    with open(MAPPING_FILE) as f:
-        return jsonify(json.load(f))
-
-
 @bp.get("/mapping/elements")
 def mapping_elements():
     if not MAPPING_FILE.exists():
