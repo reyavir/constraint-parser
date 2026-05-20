@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Sales dashboard</title>
+<link href="style.css" rel="stylesheet"/>
+</head>
+<body>
+<header class="page-header">
+<h1 data-cv-label="Sales dashboard" id="dashboard-title">Sales dashboard</h1>
+<p class="tagline" data-cv-label="How your sales are doing" id="dashboard-tagline">How your sales are doing</p>
+</header>
+<main>
+<section aria-label="Summary numbers" class="stats">
+<article class="stat-card" data-cv-label="Total revenue" id="stat-card-revenue">
+<h2 data-cv-label="Total revenue" id="stat-revenue-label">Total revenue</h2>
+<p class="stat-value" data-cv-label="$0.00" id="stat-total-revenue">$0.00</p>
+</article>
+<article class="stat-card" data-cv-label="Number of orders" id="stat-card-orders">
+<h2 data-cv-label="Number of orders" id="stat-orders-label">Number of orders</h2>
+<p class="stat-value" data-cv-label="0" id="stat-order-count">0</p>
+</article>
+<article class="stat-card" data-cv-label="Average order value" id="stat-card-aov">
+<h2 data-cv-label="Average order value" id="stat-aov-label">Average order value</h2>
+<p class="stat-value" data-cv-label="$0.00" id="stat-avg-order-value">$0.00</p>
+</article>
+</section>
+<section aria-label="Filters" class="filters">
+<div class="filter-row" data-cv-label="Search customer" id="cv_0007">
+<label data-cv-label="Search customer" for="customer-search" id="label-customer-search">Search customer</label>
+<input autocomplete="off" id="customer-search" placeholder="Customer name…" type="search"/>
+</div>
+<div class="filter-row filter-row-dates">
+<div data-cv-label="From date" id="cv_0008">
+<label data-cv-label="From date" for="date-from" id="label-date-from">From date</label>
+<input id="date-from" type="date"/>
+</div>
+<div data-cv-label="To date" id="cv_0009">
+<label data-cv-label="To date" for="date-to" id="label-date-to">To date</label>
+<input id="date-to" type="date"/>
+</div>
+</div>
+<div class="filter-row" data-cv-label="Order status All statuses Pend" id="cv_0010">
+<label data-cv-label="Order status" for="status-filter" id="label-status-filter">Order status</label>
+<select data-cv-label="All statuses" id="status-filter">
+<option value="">All statuses</option>
+<option value="pending">Pending</option>
+<option value="completed">Completed</option>
+<option value="cancelled">Cancelled</option>
+</select>
+</div>
+<button class="btn-reset" data-cv-label="Clear filters" id="clear-filters-btn" type="button">Clear filters</button>
+</section>
+<section aria-label="Recent orders" class="table-wrap">
+<h2 class="section-heading" data-cv-label="Recent orders" id="recent-orders-heading">Recent orders</h2>
+<div class="table-scroll">
+<table id="orders-table">
+<thead>
+<tr>
+<th data-cv-label="Customer" id="th-customer">Customer</th>
+<th data-cv-label="Order" id="th-order">Order</th>
+<th data-cv-label="Amount" id="th-amount">Amount</th>
+<th data-cv-label="Status" id="th-status">Status</th>
+</tr>
+</thead>
+<tbody id="orders-table-body"></tbody>
+</table>
+</div>
+<p class="empty-hint" data-cv-label="No orders match your filters." hidden="" id="orders-empty">No orders match your filters.</p>
+</section>
+</main>
+<script src="dashboard.js"></script>
+</body>
+</html>

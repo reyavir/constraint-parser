@@ -31,9 +31,13 @@ addBtn.addEventListener("click", async function () {
 
     // Update displays
     cartCount.textContent  = data.totalItems;
-    cartTotal.textContent  = data.totalPrice.toFixed(2);
+    // BUG: forgot to refresh the total — count and list update but the
+    // cart-total span keeps its previous value. Constraint verification
+    // should flag this.
     cartList.innerHTML     = renderCartItems(data.items);
     errorDisplay.textContent = "";
+
+    trackAddToCart("product-1", qty);
 
   } catch (err) {
     errorDisplay.textContent = "Failed to add item: " + err.message;

@@ -2,13 +2,10 @@
 Verification dispatcher — picks a strategy via the classifier.
 
 `classify()` reduces the dict AST to a `ConstraintType`; this module routes
-each variant to the appropriate checker. The checkers themselves are stubs
-for now; each branch documents the function that should fill it in.
+each variant to the appropriate checker. PROBABILISTIC is wired end-to-end
+through `check_probabilistic`. The other branches are still stubs.
 
-`run_codeql` wraps the CodeQL CLI for the static-analysis branches (e.g.
-hidden_error, future dataflow queries). It lives here rather than in
-src/mapping/ because mapping is now a tiny source walk and no longer
-needs CodeQL.
+`run_codeql` wraps the CodeQL CLI for the static-analysis branches.
 """
 
 from __future__ import annotations
@@ -25,16 +22,19 @@ from .constraints.types import ConstraintType
 QUERIES_DIR = Path(__file__).parent.parent / "queries"
 _TMP_DIR    = Path("/tmp/codeql-results")
 
+_FLOAT_TOL = 1e-6
+
 
 def verify(
     ast: dict,
-    traces: Any = None,
+    traces: list[dict] | None = None,
     network_log: Any = None,
     db_path: str = "./codeql-db",
 ) -> dict[str, Any]:
     ctype = classify(ast)
     match ctype:
-        case ConstraintType.PROBABILISTIC:  return _todo(ctype, "check_probabilistic(ast, traces)")
+        case ConstraintType.PROBABILISTIC:
+            return check_probabilistic(ast, traces or [])
         case ConstraintType.VALUE:          return _todo(ctype, "check_value(ast, traces)")
         case ConstraintType.VALUE_WITH_DATAFLOW:
             return _todo(ctype, "check_value(ast, traces) + run_codeql(dataflow_query, db_path)")
@@ -55,7 +55,259 @@ def _todo(ctype: ConstraintType, hint: str) -> dict:
     )
 
 
-# ── CodeQL plumbing for static-analysis checkers ─────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Probabilistic checker
+# ─────────────────────────────────────────────────────────────────────────────
+
+def check_probabilistic(ast: dict, traces: list[dict]) -> dict:
+    """
+    Evaluate ``P(event | condition) op probability`` against a list of
+    trace rollups produced by ``generate_traces_for_constraint``.
+
+    Scoring is **trace-level**: each trace is one observation. A trace
+    "satisfies" the condition if the condition action appears anywhere
+    in the trace's ``triggered`` list, and "satisfies" the event if the
+    event fires anywhere in the trace.
+
+    Causal questions ("did the click *cause* the write?") are handled
+    by Stage 1 / static CodeQL data-flow checks, not here. This
+    function answers the outcome question: "in sessions that include
+    A, what fraction also include B?"
+
+    Returns:
+
+        {
+            "result":                "PASSED" | "FAILED" | "INCONCLUSIVE",
+            "expected":              0.9,
+            "operator":              ">=",
+            "observed":              0.94,
+            "samples_total":         100,
+            "samples_condition_met": 50,
+            "samples_event_met":     47,
+            "reason":                None | "observed P = 0.40, expected = 1.0"
+        }
+    """
+    expected = ast.get("probability")
+    op       = ast.get("prob_operator", "=")
+
+    if expected is None:
+        return {
+            "result":  "INCONCLUSIVE",
+            "reason":  "AST has no probability value",
+            "samples_total": len(traces),
+        }
+
+    n_total     = len(traces)
+    n_condition = 0
+    n_both      = 0
+    failing_examples: list[dict] = []
+
+    for tr in traces:
+        if not _eval_condition(ast.get("condition"), tr):
+            continue
+        n_condition += 1
+        if _eval_event(ast.get("event"), tr):
+            n_both += 1
+        else:
+            if len(failing_examples) < 3:
+                failing_examples.append({"id": tr.get("id"),
+                                         "triggered": tr.get("triggered"),
+                                         "written":   tr.get("written"),
+                                         "written_values": tr.get("written_values"),
+                                         "errors":    tr.get("errors", [])[:2]})
+
+    if n_condition == 0:
+        return {
+            "result":                "INCONCLUSIVE",
+            "reason":                "condition was never satisfied in any trace",
+            "expected":              expected,
+            "operator":              op,
+            "samples_total":         n_total,
+            "samples_condition_met": 0,
+            "samples_event_met":     0,
+        }
+
+    observed = n_both / n_condition
+    passed   = _compare(observed, op, expected)
+
+    return {
+        "result":                "PASSED" if passed else "FAILED",
+        "expected":              expected,
+        "operator":              op,
+        "observed":              round(observed, 4),
+        "samples_total":         n_total,
+        "samples_condition_met": n_condition,
+        "samples_event_met":     n_both,
+        "reason":                None if passed
+                                 else f"observed P = {observed:.4f}; expected {op} {expected}",
+        "failing_examples":      failing_examples,
+    }
+
+
+# ── AST → boolean evaluators over a single trace ────────────────────────────
+
+def _eval_condition(node: Any, trace: dict) -> bool:
+    """
+    Conditions in the current grammar are a single ``Action`` (possibly
+    negated, possibly with a guard). Future grammar extensions (e.g.
+    multi-action conditions) would extend this dispatch.
+    """
+    if not isinstance(node, dict):
+        return False
+    if node.get("type") != "Action":
+        return False
+
+    elem = node.get("element")
+    triggered = elem in trace.get("triggered", [])
+    if node.get("negated"):
+        triggered = not triggered
+    if not triggered:
+        return False
+
+    guard = node.get("guard")
+    if guard:
+        return _eval_guard(guard, trace, side="before")
+    return True
+
+
+def _eval_event(node: Any, trace: dict) -> bool:
+    if not isinstance(node, dict):
+        return False
+    t = node.get("type")
+
+    if t == "WriteEvent":
+        elem = node.get("element")
+        if elem not in trace.get("written", []):
+            return False
+        ve = node.get("value_expr")
+        if ve is None:
+            return True
+        return _eval_value_expr(ve, trace, observed=trace.get("written_values", {}).get(elem))
+
+    if t == "CompoundEvent":
+        op = node.get("op")
+        l  = _eval_event(node.get("left"),  trace)
+        r  = _eval_event(node.get("right"), trace)
+        if op == "AND": return l and r
+        if op == "OR":  return l or r
+        if op == "XOR": return l != r
+        return False
+
+    if t == "CallEvent":
+        api = node.get("api") or ""
+        for n in trace.get("network", []):
+            ep  = n.get("endpoint") or ""
+            ref = n.get("api_ref")  or ""
+            if api and (api == ep or api == ref or ep.endswith(api)):
+                return True
+        return False
+
+    if t == "Guard":
+        return _eval_guard(node, trace, side="after")
+
+    return False
+
+
+def _eval_value_expr(ve: dict, trace: dict, *, observed: Any) -> bool:
+    """
+    Compare an observed written value against a constraint's expected
+    value expression. Conservative: cases we can't yet evaluate are
+    treated as *matching* so we don't false-positive failures — the
+    parent path_exists / write check still has to hold.
+    """
+    t = ve.get("type")
+    if t == "LiteralExpr":
+        return _values_equal(observed, ve.get("value"))
+    if t == "ReadExpr":
+        source = ve.get("element")
+        snapshot = trace.get("values_before", {}).get(source)
+        return _values_equal(observed, snapshot)
+    if t == "IncrementExpr":
+        source = ve.get("element")
+        delta  = ve.get("delta") or 0
+        before = trace.get("values_before", {}).get(source)
+        try:
+            return abs(float(observed) - (float(before) + float(delta))) < _FLOAT_TOL
+        except (TypeError, ValueError):
+            return False
+    # FuncExpr, LenExpr, StatusExpr, BinaryExpr — not yet evaluated.
+    return True
+
+
+def _eval_guard(g: dict, trace: dict, *, side: str) -> bool:
+    if g.get("type") != "Guard":
+        return False
+    l = _read_expr_value(g.get("left"),  trace, side=side)
+    r = _read_expr_value(g.get("right"), trace, side=side)
+    op = g.get("op")
+    try:
+        lf, rf = float(l), float(r)
+        return _numeric_compare(lf, op, rf)
+    except (TypeError, ValueError):
+        return _string_compare(str(l), op, str(r))
+
+
+def _read_expr_value(expr: Any, trace: dict, *, side: str) -> Any:
+    if not isinstance(expr, dict):
+        return None
+    t = expr.get("type")
+    if t == "LiteralExpr":
+        v = expr.get("value")
+        return None if v == "null" else v
+    if t == "ReadExpr":
+        elem = expr.get("element")
+        if side == "before":
+            return trace.get("values_before", {}).get(elem)
+        # "after" — prefer the most recent write, fall back to snapshot.
+        written = trace.get("written_values", {}).get(elem)
+        return written if written is not None else trace.get("values_before", {}).get(elem)
+    if t == "LenExpr":
+        elem = expr.get("element")
+        # Use the post-action value when measuring length of a UI element.
+        target = trace.get("written_values", {}).get(elem)
+        if target is None:
+            target = trace.get("values_before", {}).get(elem)
+        return len(target) if isinstance(target, str) else None
+    return None
+
+
+# ── primitive comparisons ───────────────────────────────────────────────────
+
+def _values_equal(a: Any, b: Any) -> bool:
+    if a is None or b is None:
+        return a == b
+    try:
+        return abs(float(a) - float(b)) < _FLOAT_TOL
+    except (TypeError, ValueError):
+        return str(a) == str(b)
+
+
+def _numeric_compare(l: float, op: str, r: float) -> bool:
+    eq = abs(l - r) < _FLOAT_TOL
+    if op == "=":  return eq
+    if op == "<":  return l < r and not eq
+    if op == ">":  return l > r and not eq
+    if op == "<=": return l < r or eq
+    if op == ">=": return l > r or eq
+    return False
+
+
+def _string_compare(l: str, op: str, r: str) -> bool:
+    if op == "=":  return l == r
+    if op == "<":  return l < r
+    if op == ">":  return l > r
+    if op == "<=": return l <= r
+    if op == ">=": return l >= r
+    return False
+
+
+def _compare(observed: float, op: str, expected: float) -> bool:
+    return _numeric_compare(float(observed), op, float(expected))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CodeQL plumbing for static-analysis checkers
+# ─────────────────────────────────────────────────────────────────────────────
 
 def run_query(db_path: str, query_file: str) -> list[dict]:
     """Run a CodeQL query against *db_path* and return the result rows."""

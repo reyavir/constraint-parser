@@ -6,17 +6,18 @@ from flask import Blueprint, render_template, request, jsonify, abort, send_file
 from src.parser.lexer import LexerError
 from src.parser.parser import parse, parse_with_steps, ParseError, SemanticError
 from src.constraints.classifier import classify
+from src.constraints.types import ConstraintType
 from src.constraints.semantic import analyze as analyze_semantics
 from src.mapping.pipeline import MAPPING_FILE
 from src.mapping.scan_ids import scan_element_ids
 from src.instrumenter import inject_ids, repo_status, inject_script, rewrite_absolute_paths
-from src.verifier import verify as run_verify
+from src.verifier import check_probabilistic
+from src.tracer import generate_traces_for_constraint
+from src.static_checks import stage1_check
 from .serializer import serialize_tokens, serialize_ast, serialize_constraint_type
 
-# Names of ConstraintType variants whose checker is wired end-to-end. Populate
-# as verifiers ship (currently empty — every branch in src/verifier.py is a
-# stub that raises NotImplementedError).
-_IMPLEMENTED: set[str] = set()
+# Names of ConstraintType variants whose checker is wired end-to-end.
+_IMPLEMENTED: set[str] = {"PROBABILISTIC"}
 
 bp = Blueprint("main", __name__)
 
@@ -104,22 +105,137 @@ def mapping_scan():
     })
 
 
-@bp.post("/verify")
-def verify_constraint():
-    data       = request.get_json(silent=True) or {}
-    source     = (data.get("constraint") or "").strip()
-    db_path    = (data.get("db_path") or "./codeql-db").strip()
+@bp.post("/verify/stage1")
+def verify_stage1():
+    """Run Stage 1 static checks against the dict AST for *constraint*."""
+    data    = request.get_json(silent=True) or {}
+    source  = (data.get("constraint") or "").strip()
+    db_path = (data.get("db_path") or "./codeql-db").strip()
 
     if not source:
         return jsonify({"success": False, "error": "No constraint provided."}), 400
 
     try:
         ast    = parse(source)
-        result = run_verify(ast, db_path=db_path)
+        result = stage1_check(ast, db_path=db_path)
         return jsonify({"success": True, **result})
-
-    except Exception as exc:
+    except (ParseError, SemanticError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 422
+    except RuntimeError as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Unexpected: {exc}"}), 500
+
+
+@bp.post("/codeql/rebuild")
+def codeql_rebuild():
+    """Shell out to `codeql database create --overwrite` to refresh the DB."""
+    import subprocess
+
+    data       = request.get_json(silent=True) or {}
+    source_dir = (data.get("source_dir") or "").strip()
+    db_path    = (data.get("db_path")    or "./codeql-db").strip()
+    if not source_dir:
+        return jsonify({"success": False, "error": "No source path provided."}), 400
+    if not Path(source_dir).is_dir():
+        return jsonify({"success": False, "error": f"Source not found: {source_dir}"}), 400
+
+    cmd = [
+        "codeql", "database", "create", db_path,
+        "--language=javascript",
+        f"--source-root={source_dir}",
+        "--overwrite",
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        last_err = (proc.stderr.strip().splitlines() or ["codeql CLI failed."])[-1]
+        return jsonify({"success": False, "error": last_err, "stderr": proc.stderr}), 500
+    return jsonify({"success": True, "db_path": db_path})
+
+
+@bp.post("/verify")
+def verify_constraint():
+    """
+    Stage 2 — runtime verification. Generates *n_traces* Playwright runs
+    against the user's app, then evaluates the constraint against the
+    collected rollups. Only PROBABILISTIC is wired so far.
+
+    Expected JSON body:
+        {
+            "constraint": "P(w(cart-count) | A(add-to-cart-btn)) = 1",
+            "url":        "http://localhost:8080",
+            "n_traces":   30,                       # optional, default 30
+            "random_suffix": 3,                     # optional, default 3
+            "headless":   true,                     # optional, default true
+            "mocks":      {"/api/cart": {           # optional
+                              "status": 200,
+                              "body":   {"totalItems": 1}
+                          }},
+            "seed":       null                      # optional
+        }
+    """
+    data        = request.get_json(silent=True) or {}
+    source      = (data.get("constraint") or "").strip()
+    url         = (data.get("url") or "").strip()
+    n_traces    = int(data.get("n_traces") or 30)
+    random_sfx  = int(data.get("random_suffix") if data.get("random_suffix") is not None else 3)
+    headless    = bool(data.get("headless", True))
+    mocks       = data.get("mocks") or None
+    seed        = data.get("seed")
+
+    if not source:
+        return jsonify({"success": False, "error": "No constraint provided."}), 400
+    if not url:
+        return jsonify({"success": False, "error": "Missing app URL. Start your app and pass `url`."}), 400
+
+    try:
+        ast   = parse(source)
+        ctype = classify(ast)
+    except (LexerError, ParseError, SemanticError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 422
+
+    if ctype != ConstraintType.PROBABILISTIC:
+        return jsonify({
+            "success": False,
+            "error":   f"Runtime verifier for {ctype.name} is not wired yet — only PROBABILISTIC is implemented.",
+            "type":    ctype.name,
+        }), 400
+
+    if not MAPPING_FILE.exists():
+        return jsonify({
+            "success": False,
+            "error":   "No element mapping found. Run `Scan IDs` first.",
+        }), 400
+
+    try:
+        mapping = json.loads(MAPPING_FILE.read_text())
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Could not read mapping: {exc}"}), 500
+
+    try:
+        traces = generate_traces_for_constraint(
+            url=url,
+            ast=ast,
+            mapping=mapping,
+            n=n_traces,
+            random_suffix=random_sfx,
+            mock_responses=mocks,
+            headless=headless,
+            seed=seed,
+        )
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Trace generation failed: {exc}"}), 500
+
+    result = check_probabilistic(ast, traces)
+    # Return only a sample of the raw traces so the response stays small;
+    # everything the verifier needed is in the result summary already.
+    return jsonify({
+        "success":       True,
+        "type":          ctype.name,
+        **result,
+        "traces_total":  len(traces),
+        "traces_sample": traces[:3],
+    })
 
 
 @bp.get("/mapping/elements")

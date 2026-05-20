@@ -80,10 +80,11 @@ const parseTreeCard  = document.getElementById("parse-tree-card");
 const astCard        = document.getElementById("ast-card");
 const semanticsCard  = document.getElementById("semantics-card");
 const typeCard       = document.getElementById("type-card");
-const verifyCard    = document.getElementById("verify-card");
-const verifyBtn     = document.getElementById("verify-btn");
-const verifyDbInput = document.getElementById("verify-db-input");
-const verifyResult  = document.getElementById("verify-result");
+const verifyCard     = document.getElementById("verify-card");
+const verifyBtn      = document.getElementById("verify-btn");
+const verifyUrlInput = document.getElementById("verify-url-input");
+const verifyNInput   = document.getElementById("verify-n-input");
+const verifyResult   = document.getElementById("verify-result");
 
 /* ── Bootstrap ────────────────────────────────────────────────────────── */
 document.getElementById("examples-container").innerHTML =
@@ -166,6 +167,8 @@ function clearResults() {
   semanticsCard.querySelector(".semantics-body").innerHTML = "";
   typeCard.querySelector(".type-body").innerHTML = "";
   typeCard.classList.remove("hidden");
+  stage1Result.classList.add("hidden");
+  stage1Result.innerHTML = "";
 }
 
 /* ── Step 4: Semantic analysis (Visitor 2) ────────────────────────────── */
@@ -326,6 +329,7 @@ function renderConstraintType(t) {
 
 function renderVerifyCard(verifiable) {
   if (verifiable) {
+    prefillVerifyUrl();
     verifyCard.classList.remove("hidden");
     verifyResult.classList.add("hidden");
   } else {
@@ -333,64 +337,246 @@ function renderVerifyCard(verifiable) {
   }
 }
 
+// Pre-fill the URL field from the user's last-used value. Defaults to
+// the bundled demo app served by our own Flask process (no second
+// terminal required).
+function prefillVerifyUrl() {
+  if (verifyUrlInput.value.trim()) return;
+  verifyUrlInput.value =
+    localStorage.getItem("cv:verifyUrl") || `${window.location.origin}/run/`;
+}
+
 verifyBtn.addEventListener("click", async () => {
-  const source  = input.value.trim();
-  const db_path = verifyDbInput.value.trim();
+  const source   = input.value.trim();
+  const url      = verifyUrlInput.value.trim();
+  const n_traces = parseInt(verifyNInput.value, 10) || 30;
   if (!source) return;
+  if (!url) {
+    renderVerifyError("Enter your app's URL (e.g. http://localhost:8080/index.html) before running.");
+    return;
+  }
+  localStorage.setItem("cv:verifyUrl", url);
 
   verifyBtn.disabled  = true;
-  verifyBtn.innerHTML = `<span class="spinner"></span>Verifying…`;
+  verifyBtn.innerHTML = `<span class="spinner"></span>Running ${n_traces} traces…`;
   verifyResult.classList.add("hidden");
 
   try {
     const res  = await fetch("/verify", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ constraint: source, db_path }),
+      body:    JSON.stringify({ constraint: source, url, n_traces }),
     });
     const data = await res.json();
 
     if (!data.success) {
-      verifyResult.className   = "verify-result verify-fail";
-      verifyResult.innerHTML   = `
-        <div class="verify-header">
-          <span class="verify-badge verify-badge-fail">Error</span>
-          <span class="verify-title">${escapeHtml(data.error)}</span>
-        </div>`;
-    } else if (data.passed) {
-      verifyResult.className = "verify-result verify-pass";
-      verifyResult.innerHTML = `
-        <div class="verify-header">
-          <span class="verify-badge verify-badge-pass">Passed</span>
-          <span class="verify-title">No violations found</span>
-        </div>`;
+      renderVerifyError(data.error);
     } else {
-      const chips = data.violations
-        .map(v => `<span class="verify-violation">${escapeHtml(v.file)}:${v.line}</span>`)
-        .join("");
-      verifyResult.className = "verify-result verify-fail";
-      verifyResult.innerHTML = `
-        <div class="verify-header">
-          <span class="verify-badge verify-badge-fail">Failed</span>
-          <span class="verify-title">${data.violations.length} silent error${data.violations.length > 1 ? "s" : ""} found</span>
-        </div>
-        <div class="verify-violations">${chips}</div>`;
+      renderDynamicResult(data);
     }
     verifyResult.classList.remove("hidden");
-
   } catch {
-    verifyResult.className = "verify-result verify-fail";
-    verifyResult.innerHTML = `
-      <div class="verify-header">
-        <span class="verify-badge verify-badge-fail">Error</span>
-        <span class="verify-title">Network error — is the server running?</span>
-      </div>`;
+    renderVerifyError("Network error — is the server running?");
     verifyResult.classList.remove("hidden");
   } finally {
     verifyBtn.disabled  = false;
-    verifyBtn.innerHTML = "Run Verification";
+    verifyBtn.innerHTML = "Run Dynamic Analysis";
   }
 });
+
+function renderVerifyError(msg) {
+  verifyResult.className = "verify-result verify-fail";
+  verifyResult.innerHTML = `
+    <div class="verify-header">
+      <span class="verify-badge verify-badge-fail">Error</span>
+      <span class="verify-title">${escapeHtml(msg)}</span>
+    </div>`;
+  verifyResult.classList.remove("hidden");
+}
+
+function renderDynamicResult(data) {
+  const r = data.result;
+  const badge = r === "PASSED" ? "verify-badge-pass"
+              : r === "FAILED" ? "verify-badge-fail"
+              :                  "verify-badge-skip";
+  const className = r === "PASSED" ? "verify-pass"
+                  : r === "FAILED" ? "verify-fail"
+                  :                  "verify-skip";
+
+  const observed = (data.observed != null) ? data.observed.toFixed(4) : "—";
+  const expected = (data.expected != null) ? data.expected : "—";
+  const op       = data.operator || "=";
+
+  const stats = `
+    <div class="verify-stats">
+      <div><strong>Observed P:</strong> ${observed}</div>
+      <div><strong>Expected:</strong> ${op} ${expected}</div>
+      <div><strong>Traces:</strong> ${data.samples_total ?? 0}</div>
+      <div><strong>Condition met:</strong> ${data.samples_condition_met ?? 0}</div>
+      <div><strong>Event met:</strong> ${data.samples_event_met ?? 0}</div>
+    </div>`;
+
+  const reason = data.reason
+    ? `<div class="verify-reason">${escapeHtml(data.reason)}</div>` : "";
+
+  const failingExamples = (data.failing_examples || []).slice(0, 3).map(ex => `
+    <li>
+      <code>${escapeHtml(ex.id)}</code> —
+      triggered: [${(ex.triggered || []).map(escapeHtml).join(", ")}],
+      written: [${(ex.written || []).map(escapeHtml).join(", ")}]
+    </li>`).join("");
+  const examples = failingExamples
+    ? `<details class="verify-examples"><summary>Failing trace examples</summary><ul>${failingExamples}</ul></details>` : "";
+
+  verifyResult.className = `verify-result ${className}`;
+  verifyResult.innerHTML = `
+    <div class="verify-header">
+      <span class="verify-badge ${badge}">${r}</span>
+      <span class="verify-title">Dynamic analysis (${data.type || "PROBABILISTIC"})</span>
+    </div>
+    ${stats}
+    ${reason}
+    ${examples}`;
+}
+
+/* ── Step 6: Static analysis (CodeQL) ─────────────────────────────────── */
+
+const stage1Btn       = document.getElementById("stage1-btn");
+const stage1DbInput   = document.getElementById("stage1-db-input");
+const stage1SrcInput  = document.getElementById("stage1-src-input");
+const stage1Result    = document.getElementById("stage1-result");
+const rebuildDbBtn    = document.getElementById("rebuild-db-btn");
+
+stage1Btn.addEventListener("click", async () => {
+  const source  = input.value.trim();
+  const db_path = stage1DbInput.value.trim();
+  if (!source) return;
+
+  stage1Btn.disabled  = true;
+  stage1Btn.innerHTML = `<span class="spinner"></span>Running…`;
+  stage1Result.classList.add("hidden");
+
+  try {
+    const res  = await fetch("/verify/stage1", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ constraint: source, db_path }),
+    });
+    const data = await res.json();
+    renderStage1(data);
+  } catch {
+    renderStage1({ success: false, error: "Network error — is the server running?" });
+  } finally {
+    stage1Btn.disabled  = false;
+    stage1Btn.innerHTML = "Run static checks";
+  }
+});
+
+rebuildDbBtn.addEventListener("click", async () => {
+  const source_dir = stage1SrcInput.value.trim();
+  const db_path    = stage1DbInput.value.trim();
+  if (!source_dir) return;
+
+  rebuildDbBtn.disabled  = true;
+  rebuildDbBtn.innerHTML = `<span class="spinner"></span>Building…`;
+  stage1Result.classList.add("hidden");
+
+  try {
+    const res  = await fetch("/codeql/rebuild", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ source_dir, db_path }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      stage1Result.className = "stage1-result stage1-info";
+      stage1Result.innerHTML = `<strong>CodeQL DB rebuilt</strong> at <code>${escapeHtml(data.db_path)}</code>.`;
+    } else {
+      stage1Result.className = "stage1-result stage1-fail";
+      stage1Result.innerHTML = `<strong>Rebuild failed:</strong> ${escapeHtml(data.error || "unknown")}`;
+    }
+    stage1Result.classList.remove("hidden");
+  } catch {
+    stage1Result.className = "stage1-result stage1-fail";
+    stage1Result.innerHTML = `<strong>Network error</strong> — is the server running?`;
+    stage1Result.classList.remove("hidden");
+  } finally {
+    rebuildDbBtn.disabled  = false;
+    rebuildDbBtn.innerHTML = "Rebuild DB";
+  }
+});
+
+function renderStage1(data) {
+  if (!data.success) {
+    stage1Result.className = "stage1-result stage1-fail";
+    stage1Result.innerHTML = `<strong>Error:</strong> ${escapeHtml(data.error || "unknown")}`;
+    stage1Result.classList.remove("hidden");
+    return;
+  }
+
+  const overall = data.result === "PASSED" ? "pass"
+                 : data.result === "SKIP"   ? "skip"
+                 : "fail";
+  const overallLabel = data.result === "PASSED" ? "All static checks passed"
+                     : data.result === "SKIP"   ? (data.reason || "Skipped")
+                     : `${(data.checks || []).filter(c => !c.passed).length} of ${(data.checks || []).length} checks failed`;
+
+  const header = `
+    <div class="stage1-header">
+      <span class="stage1-badge stage1-badge-${overall}">${data.result}</span>
+      <span class="stage1-title">${escapeHtml(overallLabel)}</span>
+    </div>`;
+
+  const checks = (data.checks || []).map(renderStage1Check).join("");
+
+  stage1Result.className = `stage1-result stage1-${overall}`;
+  stage1Result.innerHTML = header + checks;
+  stage1Result.classList.remove("hidden");
+
+  // Wire up the "Show query" toggles on each check panel.
+  stage1Result.querySelectorAll(".stage1-toggle-query").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const pre = btn.parentElement.querySelector(".stage1-query");
+      const open = pre.classList.toggle("hidden");
+      btn.textContent = open ? "▶ Show query" : "▼ Hide query";
+    });
+  });
+}
+
+function renderStage1Check(c) {
+  const cls = c.passed ? "pass" : "fail";
+  const verb = c.passed ? "Found" : "No";
+
+  let evidenceBlock = "";
+  if (c.evidence && c.evidence.length) {
+    const rows = c.evidence.map(e => `
+      <li><code>${escapeHtml(e.file)}:${e.line}</code></li>`).join("");
+    evidenceBlock = `
+      <div class="stage1-check-evidence">
+        <span class="stage1-check-label">${verb} ${c.evidence.length} location${c.evidence.length === 1 ? "" : "s"}:</span>
+        <ul>${rows}</ul>
+      </div>`;
+  } else if (!c.passed) {
+    evidenceBlock = `<div class="stage1-check-reason">${escapeHtml(c.reason || "no evidence")}</div>`;
+  }
+
+  return `
+    <div class="stage1-check stage1-check-${cls}">
+      <div class="stage1-check-head">
+        <span class="stage1-check-name">${escapeHtml(c.name)}</span>
+        <span class="stage1-check-args">
+          <code>${escapeHtml(c.action)}</code>
+          <span class="stage1-arrow">→</span>
+          <code>${escapeHtml(c.target)}</code>
+        </span>
+        <span class="stage1-check-pill stage1-check-pill-${cls}">${c.passed ? "PASS" : "FAIL"}</span>
+      </div>
+      ${evidenceBlock}
+      <button class="stage1-toggle-query" type="button">▶ Show query</button>
+      <pre class="stage1-query hidden">${escapeHtml(c.query || "")}</pre>
+    </div>`;
+}
+
 
 /* ── Utilities ────────────────────────────────────────────────────────── */
 function escapeHtml(str) {

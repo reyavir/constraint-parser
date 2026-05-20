@@ -8,4 +8,10 @@ input[type="number"], input[type="text"] { border: 1px solid #ccc; border-radius
 button { background: #0070f3; color: white; border: none; border-radius: 4px; padding: 0.5rem 1rem; cursor: pointer; margin-top: 0.5rem; }
 button:hover { background: #005bb5; }
 #error-display { color: #c00; margin-top: 0.75rem; font-size: 0.9rem; }
-.cart-item, .result-item { padding: 0.3rem 0; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+.cart-item, .result-item, .favorite-item { padding: 0.3rem 0; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+.qty-row { display: flex; align-items: center; gap: 0.4rem; margin: 0.5rem 0; }
+.qty-row input[type="number"] { width: 4rem; text-align: center; margin: 0; }
+#qty-plus-btn, #qty-minus-btn { padding: 0.3rem 0.7rem; margin: 0; font-weight: 700; line-height: 1; }
+#favorite-btn { background: #fff; color: #c2410c; border: 1px solid #c2410c; }
+#favorite-btn:hover { background: #fff7ed; }
+.favorites-panel { grid-column: 1 / -1; border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; }

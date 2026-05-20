@@ -129,15 +129,20 @@
       <div class="type-body"></div>
     </div>
 
-    <!-- Step 6: Verify (shown only for implemented checks) -->
-    <div id="verify-card" class="card hidden">
+    <!-- Step 6: Static analysis (CodeQL) -->
+    <div id="stage1-card" class="card">
       <div class="step-header">
         <div class="step-num">6</div>
-        <h2>Verify</h2>
+        <h2>Static Analysis</h2>
       </div>
-      <div class="input-row">
+      <p class="mapping-intro">
+        Runs CodeQL queries (path existence + taint flow) directly on your
+        source. UI-only constraints; anything involving call(api)/status(api)
+        or future-work types skips automatically.
+      </p>
+      <div class="input-row" style="margin-top:.75rem;">
         <input
-          id="verify-db-input"
+          id="stage1-db-input"
           class="constraint-input"
           type="text"
           value="./codeql-db"
@@ -145,7 +150,57 @@
           spellcheck="false"
           autocomplete="off"
         />
-        <button id="verify-btn" class="btn-parse btn-verify">Run Verification</button>
+        <button id="stage1-btn" class="btn-parse">Run static checks</button>
+      </div>
+      <div class="input-row" style="margin-top:.5rem;">
+        <input
+          id="stage1-src-input"
+          class="constraint-input"
+          type="text"
+          value="./test-app"
+          placeholder="Source dir (for rebuild)"
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <button id="rebuild-db-btn" class="btn-cancel">Rebuild DB</button>
+      </div>
+      <div id="stage1-result" class="stage1-result hidden"></div>
+    </div>
+
+    <!-- Step 7: Dynamic analysis (Playwright traces) -->
+    <div id="verify-card" class="card hidden">
+      <div class="step-header">
+        <div class="step-num">7</div>
+        <h2>Dynamic Analysis</h2>
+      </div>
+      <p class="step-blurb">
+        Drives your running app under Playwright, generates traces by clicking the
+        constraint's action elements (plus a few random extras for variation), and
+        compares the observed probability of the event against the constraint.
+        <br><br>
+        <strong>Default URL is the bundled demo app</strong>
+        (<code>/run/</code>) served by this same Flask process. Replace it with
+        your own app's URL if you want to verify against a real running app.
+      </p>
+      <div class="input-row">
+        <input
+          id="verify-url-input"
+          class="constraint-input"
+          type="text"
+          placeholder="App URL — pre-filled from Visual Builder source"
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <input
+          id="verify-n-input"
+          class="constraint-input verify-n-input"
+          type="number"
+          min="1"
+          max="500"
+          value="20"
+          title="Number of traces to generate"
+        />
+        <button id="verify-btn" class="btn-parse btn-verify">Run Dynamic Analysis</button>
       </div>
       <div id="verify-result" class="verify-result hidden"></div>
     </div>

@@ -11,4 +11,7 @@ def create_app() -> Flask:
     from .routes import bp
     app.register_blueprint(bp)
 
+    from .demo_backend import bp as demo_bp
+    app.register_blueprint(demo_bp)
+
     return app

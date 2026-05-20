@@ -21,8 +21,18 @@
 <h2 data-cv-label="Mechanical Keyboard" id="product-name">Mechanical Keyboard</h2>
 <p data-cv-label="$120.00" id="product-price">$120.00</p>
 <label data-cv-label="Qty" for="qty-input" id="cv_0002">Qty</label>
+<div class="qty-row" data-cv-label="− +" id="cv_0005">
+<button data-cv-label="Decrease quantity" id="qty-minus-btn" type="button">−</button>
 <input id="qty-input" max="99" min="1" type="number" value="1"/>
+<button data-cv-label="Increase quantity" id="qty-plus-btn" type="button">+</button>
+</div>
 <button data-cv-label="Add to Cart" id="add-to-cart-btn">Add to Cart</button>
+<button data-cv-label="Favorite" id="favorite-btn" type="button">♡ Favorite</button>
+</div>
+<!-- Favorites panel -->
+<div class="favorites-panel">
+<h2 data-cv-label="Favorites" id="cv_0004">Favorites — <span data-cv-label="0" id="favorite-count">0</span></h2>
+<div id="favorite-list"></div>
 </div>
 <!-- Cart panel -->
 <div class="cart-panel">
@@ -40,5 +50,6 @@
 </main>
 <script src="cart.js"></script>
 <script src="search.js"></script>
+<script src="local.js"></script>
 </body>
 </html>
