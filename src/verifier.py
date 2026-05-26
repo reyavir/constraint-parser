@@ -106,7 +106,7 @@ def check_probabilistic(ast: dict, traces: list[dict]) -> dict:
         if not _eval_condition(ast.get("condition"), tr):
             continue
         n_condition += 1
-        if _eval_event(ast.get("event"), tr):
+        if _eval_event(ast.get("event"), tr, condition=ast.get("condition")):
             n_both += 1
         else:
             if len(failing_examples) < 3:
@@ -170,7 +170,18 @@ def _eval_condition(node: Any, trace: dict) -> bool:
     return True
 
 
-def _eval_event(node: Any, trace: dict) -> bool:
+def _eval_event(node: Any, trace: dict, condition: dict | None = None) -> bool:
+    """
+    Evaluate whether ``node`` (the event side of a probabilistic constraint)
+    holds in *trace*.
+
+    ``condition`` is the condition AST. It's used to make value-expression
+    checks **phase-aware**: when the condition is a positive Action, we
+    anchor ``r(x) + 1`` / ``r(x)`` / literal comparisons to *the state at
+    the moment of that click*, not to trace start or trace end. For events
+    without a value expression (plain ``w(x)``) the trace-level "did it
+    happen at any point" check is used and ``condition`` is ignored.
+    """
     if not isinstance(node, dict):
         return False
     t = node.get("type")
@@ -182,12 +193,19 @@ def _eval_event(node: Any, trace: dict) -> bool:
         ve = node.get("value_expr")
         if ve is None:
             return True
-        return _eval_value_expr(ve, trace, observed=trace.get("written_values", {}).get(elem))
+        action_elem = _condition_action_element(condition)
+        if action_elem is not None:
+            return _value_check_at_action(ve, target=elem,
+                                          action_elem=action_elem,
+                                          trace=trace)
+        # No positive Action condition to anchor to — fall back to last-write.
+        return _eval_value_expr(ve, trace,
+                                observed=trace.get("written_values", {}).get(elem))
 
     if t == "CompoundEvent":
         op = node.get("op")
-        l  = _eval_event(node.get("left"),  trace)
-        r  = _eval_event(node.get("right"), trace)
+        l  = _eval_event(node.get("left"),  trace, condition)
+        r  = _eval_event(node.get("right"), trace, condition)
         if op == "AND": return l and r
         if op == "OR":  return l or r
         if op == "XOR": return l != r
@@ -206,6 +224,80 @@ def _eval_event(node: Any, trace: dict) -> bool:
         return _eval_guard(node, trace, side="after")
 
     return False
+
+
+# ── Phase-aware value-check helpers ─────────────────────────────────────────
+
+def _condition_action_element(condition: Any) -> str | None:
+    """
+    Return the action element id if the condition is a non-negated Action,
+    else None. Negated and missing conditions return None — the caller
+    falls back to last-write semantics in those cases.
+    """
+    if not isinstance(condition, dict):
+        return None
+    if condition.get("type") != "Action":
+        return None
+    if condition.get("negated"):
+        return None
+    elem = condition.get("element")
+    return elem if isinstance(elem, str) else None
+
+
+def _value_check_at_action(ve: dict, *, target: str, action_elem: str, trace: dict) -> bool:
+    """
+    Phase-aware value check:
+
+      1. Find the *first* click on ``action_elem`` in the trace's event log.
+      2. Scan forward from there to the next action event ("phase boundary").
+      3. Within that window, find the first write to ``target``.
+      4. Reconstruct the trace state immediately before the click by
+         replaying every write that happened before it.
+      5. Evaluate the value expression against that click-time state and
+         compare to the actual written value.
+
+    Returns False if no click on ``action_elem`` exists in the event log,
+    or if no write to ``target`` happens before the next action click.
+    """
+    events = trace.get("events", []) or []
+
+    click_idx = next(
+        (i for i, e in enumerate(events)
+         if e.get("type") == "action" and e.get("element") == action_elem),
+        None,
+    )
+    if click_idx is None:
+        # Condition matched via the dedup'd `triggered` list but no click
+        # event found — shouldn't happen, but degrade safely.
+        return _eval_value_expr(ve, trace,
+                                observed=trace.get("written_values", {}).get(target))
+
+    target_write = None
+    for j in range(click_idx + 1, len(events)):
+        e = events[j]
+        if e.get("type") == "action":
+            break  # next phase started; abandon search
+        if e.get("type") == "write" and e.get("element") == target:
+            target_write = e
+            break
+    if target_write is None:
+        return False
+
+    # Replay all writes before the click to reconstruct state-at-click.
+    state_at_click: dict = dict(trace.get("values_before") or {})
+    for k in range(click_idx):
+        e = events[k]
+        if e.get("type") == "write":
+            state_at_click[e.get("element")] = e.get("value")
+
+    # Synthetic trace view so _eval_value_expr resolves ReadExpr /
+    # IncrementExpr / LenExpr against click-time state rather than
+    # trace-start state.
+    synthetic = {
+        "values_before":  state_at_click,
+        "written_values": {**state_at_click, target: target_write.get("value")},
+    }
+    return _eval_value_expr(ve, synthetic, observed=target_write.get("value"))
 
 
 def _eval_value_expr(ve: dict, trace: dict, *, observed: Any) -> bool:

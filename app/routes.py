@@ -100,7 +100,9 @@ def mapping_scan():
     MAPPING_FILE.write_text(json.dumps(mapping, indent=2))
     return jsonify({
         "success":      True,
-        "elements":     len(mapping["elements"]),
+        "elements":     len(mapping.get("elements") or {}),
+        "apis":         len(mapping.get("apis") or {}),
+        "storage":      len(mapping.get("storage") or {}),
         "path":         str(MAPPING_FILE),
     })
 
@@ -251,13 +253,32 @@ def mapping_elements():
         for k, v in (mapping.get("elements") or {}).items()
     ]
     apis = [
-        {"id": k, "label": (v or {}).get("label", k)}
+        {
+            "id":       k,
+            "label":    (v or {}).get("label", k),
+            "endpoint": (v or {}).get("endpoint"),
+            "method":   (v or {}).get("method"),
+            "file":     (v or {}).get("file"),
+            "line":     (v or {}).get("line"),
+        }
         for k, v in (mapping.get("apis") or {}).items()
+    ]
+    storage = [
+        {
+            "id":   k,
+            "area": (v or {}).get("area"),
+            "key":  (v or {}).get("key"),
+            "ops":  (v or {}).get("ops", []),
+            "file": (v or {}).get("file"),
+            "line": (v or {}).get("line"),
+        }
+        for k, v in (mapping.get("storage") or {}).items()
     ]
     return jsonify({
         "available":      True,
         "elements":       elements,
         "apis":           apis,
+        "storage":        storage,
         "error_handlers": mapping.get("error_handlers", []),
     })
 

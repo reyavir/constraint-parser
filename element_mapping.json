@@ -169,5 +169,41 @@
       "line": 48
     }
   },
-  "apis": {}
+  "apis": {
+    "cartApi": {
+      "endpoint": "/api/cart",
+      "method": "POST",
+      "file": "cart.js",
+      "line": 18
+    },
+    "checkoutApi": {
+      "endpoint": "/api/checkout",
+      "method": "POST",
+      "file": "cart.js",
+      "line": 51
+    },
+    "analyticsApi": {
+      "endpoint": "/api/analytics",
+      "method": "POST",
+      "file": "cart.js",
+      "line": 81
+    },
+    "searchApi": {
+      "endpoint": "/api/search",
+      "method": "GET",
+      "file": "search.js",
+      "line": 12
+    }
+  },
+  "storage": {
+    "lastEventStorage": {
+      "area": "localStorage",
+      "key": "last_event",
+      "ops": [
+        "setItem"
+      ],
+      "file": "cart.js",
+      "line": 79
+    }
+  }
 }

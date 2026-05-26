@@ -48,12 +48,14 @@
   // ── State ─────────────────────────────────────────────────────────────
   const state = {
     action:       null,     // { id, label } | null
-    targets:      [],       // [{ id, label }]
+    targets:      [],       // [{ id, label, op, kind }]   kind: "ui" | "api"
     saved:        [],       // [{ constraint, action, targets, created_at }]
     mode:         'build',  // 'build' | 'review'
     status:       null,     // { kind: 'error' | 'info', text }
     selecting:    false,    // selection mode active?
     confirmClear: false,    // "Clear all" two-click confirmation latch
+    apis:         [],       // [{ id, endpoint, method, file, line }]
+    storage:      [],       // [{ id, area, key, ops, file, line }]
   };
 
   function persist() {
@@ -77,14 +79,20 @@
   }
 
   // ── Constraint formula ────────────────────────────────────────────────
-  // *targets* is the full state.targets array (objects with id + op).
+  // *targets* is the full state.targets array. Each target has:
+  //   { id, label, op, kind }   kind: "ui" | "api"
+  // UI targets render as w(id); API targets render as call(id).
   // targets[0].op is unused; targets[i].op for i > 0 joins target i-1 to i.
+  function targetFormula(t) {
+    return t.kind === 'api' ? `call(${t.id})` : `w(${t.id})`;
+  }
+
   function buildConstraint(actionId, targets) {
     if (!actionId || targets.length === 0) return null;
-    let writes = `w(${targets[0].id})`;
+    let writes = targetFormula(targets[0]);
     for (let i = 1; i < targets.length; i++) {
       const op = targets[i].op || 'AND';
-      writes = `${writes} ${op} w(${targets[i].id})`;
+      writes = `${writes} ${op} ${targetFormula(targets[i])}`;
     }
     return `P(${writes} | A(${actionId})) = 1`;
   }
@@ -313,6 +321,60 @@
         outline: 2px dashed ${HL_COLOR} !important;
         outline-offset: 2px !important;
       }
+
+      /* ── Detected APIs / Storage lanes ─────────────────────────────── */
+      #${PANEL_ID} .__cb_lane_row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 8px;
+        border: 1px solid #e2e8f0;
+        border-radius: 5px;
+        margin-bottom: 4px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11.5px;
+        background: #fff;
+        cursor: pointer;
+        word-break: break-all;
+      }
+      #${PANEL_ID} .__cb_lane_row:hover { background: #f8fafc; border-color: #cbd5e1; }
+      #${PANEL_ID} .__cb_lane_row._disabled {
+        opacity: .6;
+        cursor: not-allowed;
+        font-style: italic;
+      }
+      #${PANEL_ID} .__cb_lane_icon {
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      #${PANEL_ID} .__cb_lane_method {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: #e0e7ff;
+        color: #3730a3;
+        flex-shrink: 0;
+      }
+      #${PANEL_ID} .__cb_lane_method._GET    { background: #dcfce7; color: #166534; }
+      #${PANEL_ID} .__cb_lane_method._POST   { background: #fef3c7; color: #92400e; }
+      #${PANEL_ID} .__cb_lane_method._PUT    { background: #ede9fe; color: #5b21b6; }
+      #${PANEL_ID} .__cb_lane_method._DELETE { background: #fee2e2; color: #991b1b; }
+      #${PANEL_ID} .__cb_lane_id {
+        color: #0f172a;
+        font-weight: 600;
+      }
+      #${PANEL_ID} .__cb_lane_path {
+        color: #64748b;
+        flex: 1;
+        text-align: right;
+      }
+      #${PANEL_ID} .__cb_lane_note {
+        font-size: 11px;
+        color: #94a3b8;
+        margin: 0 0 6px 0;
+        font-style: italic;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -409,6 +471,56 @@
         <div class="__cb_section_label">Preview</div>
         ${previewBlock}
         <button class="__cb_btn _primary" data-action="save" ${canSave ? '' : 'disabled'}>Save constraint</button>
+      </div>
+
+      ${renderLanes()}
+    `;
+  }
+
+  // Detected APIs + storage. Sourced from /mapping/elements on init.
+  // Clicking an API row adds it as a target via `call(<id>)`. Storage
+  // is shown for visibility but isn't yet a target — the constraint
+  // grammar has no storage event.
+  function renderLanes() {
+    const apiRows = state.apis.length === 0
+      ? `<div class="__cb_empty">No APIs detected. Re-run "Scan IDs" in the Element Mapping tab if you expect some.</div>`
+      : state.apis.map(a => {
+          const method = (a.method || 'GET').toUpperCase();
+          return `
+            <div class="__cb_lane_row"
+                 data-action="pick_api"
+                 data-id="${escapeAttr(a.id)}"
+                 title="${escapeAttr((a.file || '') + ':' + (a.line || ''))}">
+              <span class="__cb_lane_icon">📡</span>
+              <span class="__cb_lane_method _${method}">${escapeHtml(method)}</span>
+              <span class="__cb_lane_id">${escapeHtml(a.id)}</span>
+              <span class="__cb_lane_path">${escapeHtml(a.endpoint || '')}</span>
+            </div>`;
+        }).join('');
+
+    const storageRows = state.storage.length === 0
+      ? `<div class="__cb_empty">No storage usage detected.</div>`
+      : state.storage.map(s => `
+            <div class="__cb_lane_row _disabled"
+                 data-action="pick_storage"
+                 data-id="${escapeAttr(s.id)}"
+                 title="Storage constraints aren't supported by the grammar yet — shown for visibility.">
+              <span class="__cb_lane_icon">💾</span>
+              <span class="__cb_lane_id">${escapeHtml(s.area)}</span>
+              <span class="__cb_lane_path">"${escapeHtml(s.key)}"</span>
+            </div>`).join('');
+
+    return `
+      <div class="__cb_section">
+        <div class="__cb_section_label">APIs your app uses</div>
+        <p class="__cb_lane_note">Click to add as a target. Renders as <code>call(name)</code>.</p>
+        ${apiRows}
+      </div>
+
+      <div class="__cb_section">
+        <div class="__cb_section_label">Storage your app uses</div>
+        <p class="__cb_lane_note">Detected only — the constraint grammar doesn't yet model storage events.</p>
+        ${storageRows}
       </div>
     `;
   }
@@ -514,6 +626,22 @@
       case 'remove_target':
         state.targets.splice(Number(target.dataset.idx), 1);
         render();
+        break;
+      case 'pick_api': {
+        const id = target.dataset.id;
+        if (!id) break;
+        if (state.targets.some(t => t.id === id && t.kind === 'api')) {
+          setStatus('error', `API ${id} is already a target.`);
+          break;
+        }
+        const api = state.apis.find(a => a.id === id);
+        const label = api ? `${id} (${(api.method || 'GET')} ${api.endpoint || ''})` : id;
+        state.targets.push({ id, label, op: 'AND', kind: 'api' });
+        render();
+        break;
+      }
+      case 'pick_storage':
+        setStatus('error', 'Storage constraints aren\'t supported by the grammar yet — shown for visibility only.');
         break;
       case 'save':
         saveConstraint();
@@ -711,11 +839,31 @@
 
   // ── Utilities ────────────────────────────────────────────────────────
   function escapeHtml(s) {
-    return String(s)
+    return String(s ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  function escapeAttr(s) {
+    return escapeHtml(s).replace(/'/g, '&#39;');
+  }
+
+  // Fetch detected APIs + storage from the same Flask host that serves
+  // /preview. Same-origin — no CORS config. Quietly tolerates failure
+  // (e.g. mapping not yet scanned) so the panel still renders.
+  function loadMapping() {
+    fetch('/mapping/elements')
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(data => {
+        if (data && data.available) {
+          state.apis    = Array.isArray(data.apis)    ? data.apis    : [];
+          state.storage = Array.isArray(data.storage) ? data.storage : [];
+          render();
+        }
+      })
+      .catch(() => { /* offline or no mapping — leave lanes empty */ });
   }
 
   // ── Init ──────────────────────────────────────────────────────────────
@@ -724,6 +872,7 @@
     buildPanel();
     restore();
     render();
+    loadMapping();
   }
 
   if (document.readyState === 'loading') {
