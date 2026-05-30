@@ -164,15 +164,16 @@ _TYPE_META: dict[ConstraintType, dict] = {
         ),
         "checker": "check_order(parsed, traces)",
     },
-    ConstraintType.LENGTH_MATCH: {
-        "label": "Length Match",
+    ConstraintType.GUARD: {
+        "label": "Guard",
         "color": "cyan",
-        "summary": "Runtime length comparison",
+        "summary": "Value assertion on event side",
         "detail": (
-            "Capture the length (e.g. array length) of both sources at runtime and "
-            "verify they are equal in traces where the action fires."
+            "The event side of P(...) is a Guard expression — an assertion about "
+            "a value, e.g. P(r(cart) = 0 | A(clearBtn)) or P(len(r(a)) = len(r(b)) | A). "
+            "Verified at runtime by reading the relevant values after the action fires."
         ),
-        "checker": "check_value(params, traces)  # compares .length properties",
+        "checker": "check_guard(parsed, traces)",
     },
     ConstraintType.STATIC: {
         "label": "Static",

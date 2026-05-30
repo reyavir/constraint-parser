@@ -34,8 +34,18 @@ Each variant maps to a distinct verification strategy:
     ORDER          — P(seq(w(a)) < seq(w(b)) | A(ei)) = p
                      Ordering of writes; verified via sequenced trace log.
 
-    LENGTH_MATCH   — P(len(r(a)) = len(r(b)) | A(ei)) = p
-                     Runtime length comparison between two sources.
+    GUARD          — P(<guard-expr> | A(ei)) = p
+                     The event side is a Guard expression, i.e. an
+                     assertion about a value (comparison, length, etc.).
+                     Examples: P(r(cart) = 0 | A(clearBtn)) = 1,
+                               P(len(r(a)) = len(r(b)) | A(ei)) = 1.
+                     Verified at runtime by reading the relevant values
+                     after the action fires.
+
+                     NOTE: this refers to a guard appearing as the *event*
+                     (left side of `|`). Action nodes can also carry a
+                     `guard` field on the *condition* side (Row 5,
+                     guarded_write). They live at different AST positions.
 
     STATIC         — static:check_type(element)
                      No runtime traces; resolved by CodeQL queries.
@@ -53,5 +63,5 @@ class ConstraintType(Enum):
     COMPOUND            = auto()
     EXCLUSIVE           = auto()
     ORDER               = auto()
-    LENGTH_MATCH        = auto()
+    GUARD               = auto()
     STATIC              = auto()

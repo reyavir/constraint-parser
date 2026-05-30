@@ -11,7 +11,7 @@ Priority order (first match wins):
   3. WriteEvent that carries a value_expr → VALUE or VALUE_WITH_DATAFLOW
        (see _classify_value_expr — depends on whether the value is a constant /
         external source or whether it derives from another UI element)
-  4. event is a Guard                     → LENGTH_MATCH
+  4. event is a Guard                     → GUARD
   5. event is a CompoundEvent
         op == "XOR"                       → EXCLUSIVE
         op == "AND" or "OR"               → COMPOUND
@@ -41,7 +41,7 @@ def classify(ast: dict) -> ConstraintType:
         return _classify_value_expr(event["value_expr"])
 
     if event.get("type") == "Guard":
-        return ConstraintType.LENGTH_MATCH
+        return ConstraintType.GUARD
 
     if event.get("type") == "CompoundEvent":
         return (ConstraintType.EXCLUSIVE

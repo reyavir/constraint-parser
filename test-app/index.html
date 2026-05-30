@@ -41,6 +41,38 @@
 <button data-cv-label="Checkout" id="checkout-btn">Checkout</button>
 <div id="error-display"></div>
 </div>
+<!-- Delegating demo (for inter-procedural all_paths_write) -->
+<div class="delegate-panel">
+<button data-cv-label="Greet" id="greet-btn" type="button">Greet</button>
+<span data-cv-label="(idle)" id="status-display">(idle)</span>
+</div>
+<!-- Row 2 fixture: typed value mirrors into a display unconditionally -->
+<div class="mirror-panel">
+<input id="mirror-input" placeholder="type — mirror updates instantly" type="text"/>
+<span data-cv-label="(empty)" id="mirror-display">(empty)</span>
+</div>
+<!-- Row 5 fixture: greeting only appears when the name field reads a specific value -->
+<div class="validate-panel">
+<input id="name-input" placeholder='type "alice"' type="text"/>
+<button data-cv-label="Submit" id="submit-btn" type="button">Submit</button>
+<span data-cv-label="" id="greeting-display"></span>
+</div>
+<!-- Order total fixture: constant-literal write (reset) + multi-source sum (compute) -->
+<div class="order-total-panel">
+<div>Subtotal: $<span data-cv-label="120.00" id="order-subtotal">120.00</span></div>
+<label>Tax: $<input id="tax-input" type="text" value="9.60"/></label>
+<label>Tip: $<input id="tip-input" type="text" value="20.00"/></label>
+<button data-cv-label="Compute" id="compute-btn" type="button">Compute total</button>
+<button data-cv-label="Reset" id="reset-total-btn" type="button">Reset</button>
+<div>Total: $<span data-cv-label="0.00" id="order-total">0.00</span></div>
+</div>
+<!-- Running-tally fixture: target reads itself + 2 other components -->
+<div class="tally-panel">
+<div>Running total: $<span data-cv-label="0.00" id="tally-display">0.00</span></div>
+<label>Charge: $<input id="charge-input" type="text" value="15.00"/></label>
+<label>Fee: $<input id="fee-input" type="text" value="2.50"/></label>
+<button data-cv-label="Add charge" id="add-tally-btn" type="button">Add charge</button>
+</div>
 <!-- Search -->
 <div class="search-panel">
 <input id="search-input" placeholder="Search products…" type="text"/>

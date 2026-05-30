@@ -56,6 +56,7 @@
     confirmClear: false,    // "Clear all" two-click confirmation latch
     apis:         [],       // [{ id, endpoint, method, file, line }]
     storage:      [],       // [{ id, area, key, ops, file, line }]
+    elements:     [],       // [{ id, label }] — for the value picker's element dropdown
   };
 
   function persist() {
@@ -80,11 +81,43 @@
 
   // ── Constraint formula ────────────────────────────────────────────────
   // *targets* is the full state.targets array. Each target has:
-  //   { id, label, op, kind }   kind: "ui" | "api"
-  // UI targets render as w(id); API targets render as call(id).
+  //   { id, label, op, kind, source, source_literal, source_element_id, source_element_label }
+  //   kind:   "ui" | "api"
+  //   source: "any" | "literal" | "element" | "api"   (UI targets only)
+  // UI targets render as:
+  //   any      → w(id)
+  //   literal  → w(id, <number or "string">)
+  //   element  → w(id, r(other_id))
+  //   api      → w(id, r(api_result))
+  // API targets render as call(id) regardless of source.
   // targets[0].op is unused; targets[i].op for i > 0 joins target i-1 to i.
   function targetFormula(t) {
-    return t.kind === 'api' ? `call(${t.id})` : `w(${t.id})`;
+    if (t.kind === 'api') return `call(${t.id})`;
+    const valueExpr = renderValueExpr(t);
+    return valueExpr ? `w(${t.id}, ${valueExpr})` : `w(${t.id})`;
+  }
+
+  // Render the value_expr piece based on the target's value source. Returns
+  // null when source is "any" (or absent), in which case w(id) is emitted
+  // without a value_expr.
+  function renderValueExpr(t) {
+    switch (t.source) {
+      case 'literal': {
+        const raw = (t.source_literal == null) ? '' : String(t.source_literal);
+        // Bare number → emit unquoted; everything else → quoted string.
+        // Negative numbers and decimals both count as numeric.
+        return /^-?\d+(\.\d+)?$/.test(raw.trim())
+          ? raw.trim()
+          : `"${raw.replace(/"/g, '\\"')}"`;
+      }
+      case 'element':
+        return t.source_element_id ? `r(${t.source_element_id})` : null;
+      case 'api':
+        return `r(api_result)`;
+      case 'any':
+      default:
+        return null;
+    }
   }
 
   function buildConstraint(actionId, targets) {
@@ -204,6 +237,51 @@
         flex-shrink: 0;
       }
       #${PANEL_ID} .__cb_chip ._remove:hover { color: #dc2626; }
+
+      #${PANEL_ID} .__cb_target_block {
+        margin-bottom: 6px;
+      }
+      #${PANEL_ID} .__cb_target_block .__cb_chip {
+        margin-bottom: 2px;
+      }
+      #${PANEL_ID} .__cb_value_row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        margin-left: 12px;
+        font-size: 11px;
+        color: #475569;
+      }
+      #${PANEL_ID} .__cb_value_row::before {
+        content: "↳";
+        color: #94a3b8;
+        margin-right: 2px;
+      }
+      #${PANEL_ID} .__cb_value_row_api { font-style: italic; color: #94a3b8; }
+      #${PANEL_ID} .__cb_value_label { color: #64748b; }
+      #${PANEL_ID} .__cb_value_source {
+        font: inherit;
+        font-size: 11px;
+        background: #fff;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        padding: 1px 4px;
+        cursor: pointer;
+        color: ${HL_COLOR};
+        font-weight: 600;
+      }
+      #${PANEL_ID} .__cb_value_input {
+        font: inherit;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        padding: 1px 5px;
+        min-width: 110px;
+        max-width: 180px;
+      }
+      #${PANEL_ID} select.__cb_value_input { font-family: inherit; }
 
       #${PANEL_ID} .__cb_op_row {
         display: flex;
@@ -408,8 +486,22 @@
     // Wire up event delegation each render (innerHTML wipes listeners).
     panel.addEventListener('click',  onPanelClick);
     panel.addEventListener('change', onPanelChange);
+    panel.addEventListener('input',  onPanelInput);
     const header = panel.querySelector('.__cb_header');
     if (header) header.addEventListener('mousedown', startDrag);
+  }
+
+  // Fires on every keystroke for text inputs. We only care about the
+  // literal value input — update state and refresh just the preview so
+  // the input retains focus.
+  function onPanelInput(e) {
+    if (e.target.tagName !== 'INPUT') return;
+    if (e.target.dataset.action !== 'change_literal') return;
+    const idx = Number(e.target.dataset.idx);
+    const t = state.targets[idx];
+    if (!t) return;
+    t.source_literal = e.target.value;
+    renderPreviewOnly();
   }
 
   function renderBuild() {
@@ -436,11 +528,8 @@
     const targetRows = ts.length
       ? ts.map((t, i) => `
           ${i > 0 ? opSelect(i, t.op || 'AND') : ''}
-          <div class="__cb_chip">
-            <span>${escapeHtml(t.label)}</span>
-            <span class="_remove" data-action="remove_target" data-idx="${i}" title="Remove">×</span>
-          </div>`).join('')
-      : `<div class="__cb_empty">No targets yet.</div>`;
+          ${renderTargetBlock(t, i)}`).join('')
+      : `<div class="__cb_empty">No targets yet — pick something that should update.</div>`;
 
     const canSave = !!(a && ts.length);
     const previewBlock = preview
@@ -450,17 +539,17 @@
     const selecting = state.selecting;
     return `
       <div class="__cb_section">
-        <div class="__cb_section_label">Action  A(eᵢ)</div>
+        <div class="__cb_section_label">When I do this</div>
         ${actionRow}
         <div class="__cb_btn_row" style="margin-top:6px;">
           <button class="__cb_btn _small" data-action="pick_action" ${selecting ? 'disabled' : ''}>
-            ${a ? 'Replace action' : 'Select action'}
+            ${a ? 'Replace action' : 'Pick action'}
           </button>
         </div>
       </div>
 
       <div class="__cb_section">
-        <div class="__cb_section_label">Targets  w(eⱼ)</div>
+        <div class="__cb_section_label">These should update</div>
         ${targetRows}
         <div class="__cb_btn_row" style="margin-top:6px;">
           <button class="__cb_btn _small" data-action="pick_target" ${selecting ? 'disabled' : ''}>+ Add target</button>
@@ -468,13 +557,68 @@
       </div>
 
       <div class="__cb_section">
-        <div class="__cb_section_label">Preview</div>
+        <div class="__cb_section_label">Constraint preview</div>
         ${previewBlock}
         <button class="__cb_btn _primary" data-action="save" ${canSave ? '' : 'disabled'}>Save constraint</button>
       </div>
 
       ${renderLanes()}
     `;
+  }
+
+  // Render one target: its chip + (for UI targets) a value-source picker
+  // beneath it. API targets have no value picker — they're system events.
+  function renderTargetBlock(t, idx) {
+    const chip = `
+      <div class="__cb_chip">
+        <span>${escapeHtml(t.label)}</span>
+        <span class="_remove" data-action="remove_target" data-idx="${idx}" title="Remove">×</span>
+      </div>`;
+    if (t.kind === 'api') {
+      return `<div class="__cb_target_block">${chip}
+        <div class="__cb_value_row __cb_value_row_api">
+          <span>(API call — no value claim)</span>
+        </div>
+      </div>`;
+    }
+    return `
+      <div class="__cb_target_block">
+        ${chip}
+        <div class="__cb_value_row">
+          <span class="__cb_value_label">value:</span>
+          <select class="__cb_value_source"
+                  data-action="change_source" data-idx="${idx}">
+            <option value="any"     ${(!t.source || t.source === 'any') ? 'selected' : ''}>any value</option>
+            <option value="literal" ${t.source === 'literal' ? 'selected' : ''}>specific literal…</option>
+            <option value="element" ${t.source === 'element' ? 'selected' : ''}>read from another element…</option>
+            <option value="api"     ${t.source === 'api'     ? 'selected' : ''}>from an API response</option>
+          </select>
+          ${renderValueSubInput(t, idx)}
+        </div>
+      </div>`;
+  }
+
+  function renderValueSubInput(t, idx) {
+    if (t.source === 'literal') {
+      const v = (t.source_literal == null) ? '' : String(t.source_literal);
+      return `<input class="__cb_value_input"
+                     data-action="change_literal" data-idx="${idx}"
+                     type="text" placeholder='e.g. "Hi Alice" or 0'
+                     value="${escapeAttr(v)}"/>`;
+    }
+    if (t.source === 'element') {
+      const opts = state.elements.length
+        ? state.elements.map(e => {
+            const sel = e.id === t.source_element_id ? 'selected' : '';
+            return `<option value="${escapeAttr(e.id)}" ${sel}>${escapeHtml(e.id)}${e.label ? ' — ' + escapeHtml(String(e.label)) : ''}</option>`;
+          }).join('')
+        : '<option value="">(no elements — run Scan IDs)</option>';
+      return `<select class="__cb_value_input"
+                     data-action="change_source_element" data-idx="${idx}">
+                <option value="">choose element…</option>${opts}
+              </select>`;
+    }
+    return '';
   }
 
   // Detected APIs + storage. Sourced from /mapping/elements on init.
@@ -574,14 +718,50 @@
 
   // ── Event handlers ────────────────────────────────────────────────────
   function onPanelChange(e) {
-    if (e.target.tagName !== 'SELECT') return;
-    if (e.target.dataset.action === 'change_op') {
-      const idx = Number(e.target.dataset.idx);
-      const op  = e.target.value;
-      if (state.targets[idx]) {
-        state.targets[idx].op = op;
-        render();
+    const action = e.target.dataset && e.target.dataset.action;
+    if (!action) return;
+    const idx = Number(e.target.dataset.idx);
+    const t   = state.targets[idx];
+
+    if (action === 'change_op' && t) {
+      t.op = e.target.value;
+      render();
+    } else if (action === 'change_source' && t) {
+      t.source = e.target.value;
+      if (t.source !== 'literal') t.source_literal = undefined;
+      if (t.source !== 'element') {
+        t.source_element_id = undefined;
+        t.source_element_label = undefined;
       }
+      render();
+    } else if (action === 'change_literal' && t) {
+      t.source_literal = e.target.value;
+      // Don't re-render on every keystroke — just update the preview formula
+      // by re-rendering. (Preview update is the main reason to render.)
+      renderPreviewOnly();
+    } else if (action === 'change_source_element' && t) {
+      t.source_element_id = e.target.value || undefined;
+      const el = state.elements.find(x => x.id === e.target.value);
+      t.source_element_label = el ? (el.label || el.id) : undefined;
+      render();
+    }
+  }
+
+  // Lightweight preview update — only re-renders the preview block + the
+  // save button enabled-state. Avoids losing focus on the literal text input.
+  function renderPreviewOnly() {
+    if (!panel) return;
+    const a = state.action;
+    const ts = state.targets;
+    const preview = buildConstraint(a && a.id, ts);
+    const block = panel.querySelector('.__cb_preview');
+    if (!block) return;
+    if (preview) {
+      block.classList.remove('_empty');
+      block.textContent = preview;
+    } else {
+      block.classList.add('_empty');
+      block.textContent = 'Pick an action and at least one target to see the preview.';
     }
   }
 
@@ -619,7 +799,14 @@
           }
           // New target joins the previous one with AND by default — the
           // user can change it via the dropdown that renders above the chip.
-          state.targets.push({ id: el.id, label: getDisplayLabel(el), op: 'AND' });
+          // Default value source is "any" (emits w(id) with no value_expr).
+          state.targets.push({
+            id:     el.id,
+            label:  getDisplayLabel(el),
+            op:     'AND',
+            kind:   'ui',
+            source: 'any',
+          });
           render();
         });
         break;
@@ -858,8 +1045,9 @@
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => {
         if (data && data.available) {
-          state.apis    = Array.isArray(data.apis)    ? data.apis    : [];
-          state.storage = Array.isArray(data.storage) ? data.storage : [];
+          state.apis     = Array.isArray(data.apis)     ? data.apis     : [];
+          state.storage  = Array.isArray(data.storage)  ? data.storage  : [];
+          state.elements = Array.isArray(data.elements) ? data.elements : [];
           render();
         }
       })

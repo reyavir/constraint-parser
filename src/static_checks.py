@@ -61,17 +61,17 @@ from .verifier import run_query, QUERIES_DIR
 # ---------------------------------------------------------------------------
 
 _PRIMITIVES_FOR_TYPE: dict[ConstraintType, list[str]] = {
-    ConstraintType.PROBABILISTIC:        ["path_exists"],
-    # VALUE = constant / external value (LiteralExpr, LenExpr, StatusExpr).
-    # literal_value applies only when the value is a literal k (Row C);
-    # it self-skips otherwise.
-    ConstraintType.VALUE:                ["path_exists", "literal_value"],
-    # VALUE_WITH_DATAFLOW = value derives from element reads. source_set
-    # verifies the write derives from EXACTLY the elements the value_expr
-    # names (Rows 2/3/D); self_increment additionally checks the "+ c"
-    # literal for IncrementExpr (Row A) and self-skips otherwise.
-    ConstraintType.VALUE_WITH_DATAFLOW:  ["path_exists", "source_set", "self_increment"],
-    ConstraintType.COMPOUND:             ["path_exists"],
+    # all_paths_write is the universal/sufficient half of P = 1: every
+    # code path through the handler must dominate a write to the target.
+    # It self-skips for P = 0 (no_path already covers absence soundly).
+    # Not added to EXCLUSIVE (XOR is a runtime property; "every path
+    # writes exactly one of two" isn't what path_exists carries) or to
+    # COUNTERFACTUAL (no_other_handlers is already the universal check).
+    ConstraintType.PROBABILISTIC:        ["path_exists", "all_paths_write"],
+    ConstraintType.VALUE:                ["path_exists", "literal_value", "all_paths_write"],
+    ConstraintType.VALUE_WITH_DATAFLOW:  ["path_exists", "source_set", "self_increment",
+                                          "api_result_taint", "all_paths_write"],
+    ConstraintType.COMPOUND:             ["path_exists", "all_paths_write"],
     # XOR-exclusivity ("exactly one of two targets fires") is a runtime
     # property — statically the most we can say is a path exists to each.
     ConstraintType.EXCLUSIVE:            ["path_exists"],
@@ -83,7 +83,7 @@ _PRIMITIVES_FOR_TYPE: dict[ConstraintType, list[str]] = {
 
 _SKIP_TYPES = {
     ConstraintType.API_CALL,
-    ConstraintType.LENGTH_MATCH,
+    ConstraintType.GUARD,
     ConstraintType.ORDER,
 }
 
@@ -251,6 +251,32 @@ def _run_source_set(*, ast, action_id, target_id, db_path) -> dict | None:
     }
 
 
+def _run_api_result_taint(*, ast, action_id, target_id, db_path) -> dict | None:
+    """
+    Verify the value written to the target taint-flows from an API
+    response parse (.json() / .text()). Self-skips unless the
+    constraint's value_expr references api_result.
+    """
+    if not _value_reads_api_result(ast, target_id):
+        return None
+    rows, query_text = _run_template("api_result_taint.ql",
+                                     db_path=db_path,
+                                     action_id=action_id,
+                                     target_id=target_id)
+    passed = len(rows) > 0
+    return {
+        "name":     "api_result_taint",
+        "action":   action_id,
+        "target":   target_id,
+        "passed":   passed,
+        "evidence": rows,
+        "reason":   None if passed
+                    else f"no taint path from an outgoing HTTP request response "
+                         f"to the write of {target_id} in handler({action_id})",
+        "query":    query_text,
+    }
+
+
 def _run_self_increment(*, ast, action_id, target_id, db_path) -> dict | None:
     """
     Row A — P(w(ej, r(ej) + c) | A(ei)) = 1. Applies only when the
@@ -273,6 +299,41 @@ def _run_self_increment(*, ast, action_id, target_id, db_path) -> dict | None:
         "evidence": rows,
         "reason":   None if passed
                     else f"write({target_id}) in handler({action_id}) does not add a literal constant",
+        "query":    query_text,
+    }
+
+
+def _run_all_paths_write(*, ast, action_id, target_id, db_path) -> dict | None:
+    """
+    Universal check — every code path through the handler reaches a
+    write to the target. Self-skips in two cases:
+
+      1. P = 0 constraints — `no_path` already covers absence soundly.
+      2. Conditions carrying a guard (Row 5: P(w | A AND r(x) = v) = 1) —
+         the universality claim is restricted to the guard's then-branch,
+         not the whole handler. `guarded_write` carries the structural
+         check; running all_paths_write on the entire handler would
+         spuriously FLAG the else branch that legitimately doesn't write.
+         A branch-aware all_paths_write is future work.
+    """
+    if _expects_absence(ast):
+        return None
+    if _condition_has_guard(ast):
+        return None
+    rows, query_text = _run_template("all_paths_write.ql",
+                                     db_path=db_path,
+                                     action_id=action_id,
+                                     target_id=target_id)
+    passed = len(rows) == 0
+    return {
+        "name":     "all_paths_write",
+        "action":   action_id,
+        "target":   target_id,
+        "passed":   passed,
+        "evidence": rows,
+        "reason":   None if passed
+                    else f"some code path through handler({action_id}) exits "
+                         f"without writing {target_id}",
         "query":    query_text,
     }
 
@@ -358,6 +419,8 @@ _PRIMITIVE_RUNNERS = {
     "literal_value":     _run_literal_value,
     "source_set":        _run_source_set,
     "self_increment":    _run_self_increment,
+    "api_result_taint":  _run_api_result_taint,
+    "all_paths_write":   _run_all_paths_write,
     "no_other_handlers": _run_no_other_handlers,
     "guarded_write":     _run_guarded_write,
 }
@@ -394,6 +457,24 @@ def _value_literal_for(ast: dict, target_id: str):
 def _value_is_increment(ast: dict, target_id: str) -> bool:
     ve = _value_expr_for(ast, target_id)
     return isinstance(ve, dict) and ve.get("type") == "IncrementExpr"
+
+
+def _value_reads_api_result(ast: dict, target_id: str) -> bool:
+    """True iff the target's value_expr contains a ReadExpr / LenExpr
+    referencing api_result anywhere in its tree."""
+    ve = _value_expr_for(ast, target_id)
+    return _expr_references_api_result(ve)
+
+
+def _expr_references_api_result(node: Any) -> bool:
+    if isinstance(node, dict):
+        if (node.get("type") in ("ReadExpr", "LenExpr")
+                and node.get("element") == "api_result"):
+            return True
+        return any(_expr_references_api_result(v) for v in node.values())
+    if isinstance(node, list):
+        return any(_expr_references_api_result(item) for item in node)
+    return False
 
 
 def _value_read_elements(ast: dict, target_id: str) -> list[str]:

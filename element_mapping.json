@@ -147,26 +147,145 @@
       "file": "index.html",
       "line": 42
     },
+    "greet-btn": {
+      "label": "Greet",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 46
+    },
+    "status-display": {
+      "label": "(idle)",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 47
+    },
+    "mirror-input": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
+      "line": 51
+    },
+    "mirror-display": {
+      "label": "(empty)",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 52
+    },
+    "name-input": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
+      "line": 56
+    },
+    "submit-btn": {
+      "label": "Submit",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 57
+    },
+    "greeting-display": {
+      "label": "",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 58
+    },
+    "order-subtotal": {
+      "label": "120.00",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 62
+    },
+    "tax-input": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
+      "line": 63
+    },
+    "tip-input": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
+      "line": 64
+    },
+    "compute-btn": {
+      "label": "Compute",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 65
+    },
+    "reset-total-btn": {
+      "label": "Reset",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 66
+    },
+    "order-total": {
+      "label": "0.00",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 67
+    },
+    "tally-display": {
+      "label": "0.00",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 71
+    },
+    "charge-input": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
+      "line": 72
+    },
+    "fee-input": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
+      "line": 73
+    },
+    "add-tally-btn": {
+      "label": "Add charge",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 74
+    },
     "search-input": {
       "label": "",
       "tag": "input",
       "kind": "action",
       "file": "index.html",
-      "line": 46
+      "line": 78
     },
     "search-btn": {
       "label": "Search",
       "tag": "button",
       "kind": "action",
       "file": "index.html",
-      "line": 47
+      "line": 79
     },
     "search-results": {
       "label": "",
       "tag": "div",
       "kind": "component",
       "file": "index.html",
-      "line": 48
+      "line": 80
     }
   },
   "apis": {

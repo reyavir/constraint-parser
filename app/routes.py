@@ -8,6 +8,7 @@ from src.parser.parser import parse, parse_with_steps, ParseError, SemanticError
 from src.constraints.classifier import classify
 from src.constraints.types import ConstraintType
 from src.constraints.semantic import analyze as analyze_semantics
+from src.constraints.explain import classification_trace, dispatch_plan
 from src.mapping.pipeline import MAPPING_FILE
 from src.mapping.scan_ids import scan_element_ids
 from src.instrumenter import inject_ids, repo_status, inject_script, rewrite_absolute_paths
@@ -58,13 +59,15 @@ def parse_constraint():
                       and type_payload["name"] in _IMPLEMENTED)
 
         return jsonify({
-            "success":    True,
-            "tokens":     serialize_tokens(tokens),
-            "parse_tree": parse_tree,
-            "ast":        serialize_ast(ast),
-            "type":       type_payload,
-            "semantics":  semantics,
-            "verifiable": verifiable,
+            "success":             True,
+            "tokens":              serialize_tokens(tokens),
+            "parse_tree":          parse_tree,
+            "ast":                 serialize_ast(ast),
+            "type":                type_payload,
+            "semantics":           semantics,
+            "verifiable":          verifiable,
+            "classification_trace": classification_trace(ast),
+            "dispatch_plan":       dispatch_plan(ast),
         })
 
     except LexerError as exc:

@@ -124,7 +124,7 @@ async function runParse() {
       renderTokens(data.tokens);
       renderParseTree(data.parse_tree);
       renderAST(data.ast);
-      renderConstraintType(data.type);
+      renderConstraintType(data.type, data.classification_trace, data.dispatch_plan);
       renderSemantics(data.semantics);
       renderVerifyCard(data.verifiable);
       resultsArea.classList.remove("hidden");
@@ -299,9 +299,8 @@ function renderLeaf(label, value, cls) {
 }
 
 /* ── Step 4: Constraint type ──────────────────────────────────────────── */
-function renderConstraintType(t) {
+function renderConstraintType(t, trace, plan) {
   if (!t) {
-    // Classifier (visitor 2) not wired yet — hide the card entirely.
     typeCard.classList.add("hidden");
     return;
   }
@@ -322,7 +321,88 @@ function renderConstraintType(t) {
     </div>
 
     <p class="type-detail">${escapeHtml(t.detail)}</p>
+
+    ${renderClassificationTrace(trace)}
+    ${renderDispatchPlan(plan)}
   `;
+}
+
+// Show every rule the classifier evaluated, with ✓/✗ and the type each
+// rule would have selected. The matched (winning) rule is highlighted;
+// rules that came after are dimmed because the classifier short-circuits.
+function renderClassificationTrace(trace) {
+  if (!Array.isArray(trace) || trace.length === 0) return "";
+  const rows = trace.map(s => {
+    const cls = (s.skipped ? "trace-row-skipped"
+                : s.matched ? "trace-row-matched"
+                :             "trace-row-no")
+              + (s.indented ? " trace-row-indent" : "");
+    const icon = s.skipped ? "·"
+               : s.matched ? "✓"
+               :             "✗";
+    return `
+      <div class="trace-row ${cls}">
+        <span class="trace-icon">${icon}</span>
+        <span class="trace-rule">${escapeHtml(s.rule)}</span>
+        <span class="trace-arrow">→</span>
+        <span class="trace-would">${escapeHtml(s.would_give)}</span>
+        ${s.detail ? `<div class="trace-detail">${escapeHtml(s.detail)}</div>` : ""}
+      </div>`;
+  }).join("");
+  return `
+    <div class="type-section">
+      <span class="type-section-label">Classifier decision trace</span>
+      <p class="type-section-hint">
+        Each rule maps to one branch in <code>classify(ast)</code>. First match wins; later rules are skipped.
+      </p>
+      <div class="trace-list">${rows}</div>
+    </div>`;
+}
+
+// Show the primitive(s) the dispatcher will run for this AST, with the
+// rendered slot bindings. Each row corresponds to one (primitive, target)
+// pair that the for-loop in stage1_check will execute.
+function renderDispatchPlan(plan) {
+  if (!Array.isArray(plan)) return "";
+  if (plan.length === 0) {
+    return `
+      <div class="type-section">
+        <span class="type-section-label">Static-analysis dispatch plan</span>
+        <p class="type-section-hint">No static primitives will run for this constraint type.</p>
+      </div>`;
+  }
+  const rows = plan.map(p => {
+    const slots = p.slots && Object.keys(p.slots).length
+      ? `<div class="plan-slots">
+           ${Object.entries(p.slots).map(([k, v]) =>
+             `<span class="plan-slot"><code>__${k}__</code> = <code>${escapeHtml(String(v))}</code></span>`
+           ).join("")}
+         </div>`
+      : "";
+    const skipped = !p.applies
+      ? `<div class="plan-skipped">SKIP — ${escapeHtml(p.skip_reason || "")}</div>`
+      : "";
+    return `
+      <div class="plan-row ${p.applies ? "" : "plan-row-skip"}">
+        <div class="plan-head">
+          <span class="plan-prim">${escapeHtml(p.primitive)}</span>
+          <span class="plan-target">target = <code>${escapeHtml(p.target)}</code></span>
+          <span class="plan-file"><code>${escapeHtml(p.query_file || "")}</code></span>
+        </div>
+        <div class="plan-desc">${escapeHtml(p.description || "")}</div>
+        ${slots}
+        ${skipped}
+      </div>`;
+  }).join("");
+  return `
+    <div class="type-section">
+      <span class="type-section-label">Static-analysis dispatch plan</span>
+      <p class="type-section-hint">
+        For each row, the dispatcher fills the listed slots into the <code>.ql</code>
+        file and runs CodeQL. Output appears in Step 6.
+      </p>
+      <div class="plan-list">${rows}</div>
+    </div>`;
 }
 
 /* ── Step 5: Verify ───────────────────────────────────────────────────── */
