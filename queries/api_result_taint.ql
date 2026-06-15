@@ -72,6 +72,41 @@ predicate registeredHandler(string id, Function fn) {
       )
     )
   )
+  or
+  (
+    id = "page-load" and
+    (
+      exists(MethodCallExpr addEvt |
+        addEvt.getMethodName() = "addEventListener" and
+        addEvt.getReceiver().(VarRef).getName() = ["window", "document"] and
+        addEvt.getArgument(0).getStringValue() = ["load", "DOMContentLoaded"] and
+        (
+          fn = addEvt.getArgument(1)
+          or
+          exists(VarRef ref |
+            ref = addEvt.getArgument(1) and
+            fn.getName() = ref.getName() and
+            fn.getFile() = addEvt.getFile()
+          )
+        )
+      )
+      or
+      exists(AssignExpr assign, PropAccess lhs |
+        assign.getLhs() = lhs and
+        lhs.getPropertyName() = "onload" and
+        lhs.getBase().(VarRef).getName() = "window" and
+        (
+          fn = assign.getRhs()
+          or
+          exists(VarRef ref |
+            ref = assign.getRhs() and
+            fn.getName() = ref.getName() and
+            fn.getFile() = assign.getFile()
+          )
+        )
+      )
+    )
+  )
 }
 
 class ApiResponseToTarget extends TaintTracking::Configuration {
@@ -109,12 +144,28 @@ class ApiResponseToTarget extends TaintTracking::Configuration {
     )
   }
 
-  /** Sink: the RHS of an assignment writing a property of the target. */
+  /**
+   * Sink: the RHS of a write on the target DOM element, OR the value
+   * arg of `localStorage.setItem(key, …)` / `sessionStorage.setItem(key, …)`
+   * for the constraint's storage key. The storage disjunct self-disables
+   * for DOM-only constraints via the empty-string guard.
+   */
   override predicate isSink(DataFlow::Node sink) {
     exists(AssignExpr write, PropAccess lhs |
       write.getLhs() = lhs and
       isElementRef("__TARGET_ID__", lhs.getBase()) and
       sink = DataFlow::valueNode(write.getRhs())
+    )
+    or
+    exists(MethodCallExpr call |
+      "__STORAGE_KEY__" != "" and
+      call.getMethodName() = "setItem" and
+      call.getArgument(0).getStringValue() = "__STORAGE_KEY__" and
+      exists(VarRef base |
+        base = call.getReceiver() and
+        base.getName() = ["localStorage", "sessionStorage"]
+      ) and
+      sink = DataFlow::valueNode(call.getArgument(1))
     )
   }
 
@@ -141,12 +192,22 @@ class ApiResponseToTarget extends TaintTracking::Configuration {
 }
 
 from ApiResponseToTarget cfg, DataFlow::Node src, DataFlow::Node sink,
-     Function handler, AssignExpr write
+     Function handler, Expr writeSite
 where
   registeredHandler("__ACTION_ID__", handler) and
   cfg.hasFlow(src, sink) and
-  write.getRhs() = sink.asExpr() and
-  write.getEnclosingFunction() = handler
+  writeSite.getEnclosingFunction() = handler and
+  (
+    exists(AssignExpr w |
+      w.getRhs() = sink.asExpr() and
+      w = writeSite
+    )
+    or
+    exists(MethodCallExpr c |
+      c.getArgument(1) = sink.asExpr() and
+      c = writeSite
+    )
+  )
 select
-  write.getFile().getRelativePath()      as file,
-  write.getLocation().getStartLine()     as line
+  writeSite.getFile().getRelativePath()      as file,
+  writeSite.getLocation().getStartLine()     as line

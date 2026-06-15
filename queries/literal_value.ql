@@ -43,6 +43,41 @@ predicate registeredHandler(string id, Function fn) {
       )
     )
   )
+  or
+  (
+    id = "page-load" and
+    (
+      exists(MethodCallExpr addEvt |
+        addEvt.getMethodName() = "addEventListener" and
+        addEvt.getReceiver().(VarRef).getName() = ["window", "document"] and
+        addEvt.getArgument(0).getStringValue() = ["load", "DOMContentLoaded"] and
+        (
+          fn = addEvt.getArgument(1)
+          or
+          exists(VarRef ref |
+            ref = addEvt.getArgument(1) and
+            fn.getName() = ref.getName() and
+            fn.getFile() = addEvt.getFile()
+          )
+        )
+      )
+      or
+      exists(AssignExpr assign, PropAccess lhs |
+        assign.getLhs() = lhs and
+        lhs.getPropertyName() = "onload" and
+        lhs.getBase().(VarRef).getName() = "window" and
+        (
+          fn = assign.getRhs()
+          or
+          exists(VarRef ref |
+            ref = assign.getRhs() and
+            fn.getName() = ref.getName() and
+            fn.getFile() = assign.getFile()
+          )
+        )
+      )
+    )
+  )
 }
 
 predicate writesElement(string id, AssignExpr write) {

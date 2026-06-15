@@ -139,17 +139,26 @@ class ASTBuilder(ConstraintVisitor):
 
     def visitAtom(self, ctx: ConstraintParser.AtomContext):
         for child in (ctx.write_event(), ctx.user_action(), ctx.system_event(),
-                      ctx.guard(), ctx.literal_bool()):
+                      ctx.persist_event(), ctx.guard(), ctx.literal_bool()):
             if child is not None:
                 return self.visit(child)
         raise SemanticError("Empty atom — parse tree is malformed.")
 
     def visitWrite_event(self, ctx: ConstraintParser.Write_eventContext):
+        # Three forms:
+        #   w(target)                            → value_expr=None, sources=None
+        #   w(target, expr)                      → value_expr=<expr>
+        #   w(target, sources={r(s1), r(s2)})    → sources=[…]; value_expr=None
+        # `sources` is the explicit set-equality form (Row 3 style); the
+        # downstream dispatcher uses it for `source_set` instead of
+        # walking an arithmetic value_expr.
         value_expr = self.visit(ctx.expr()) if ctx.expr() is not None else None
+        sources    = self.visit(ctx.source_set()) if ctx.source_set() is not None else None
         return _check_required({
             "type":       "WriteEvent",
             "element":    self.visit(ctx.ui_element()),
             "value_expr": value_expr,
+            "sources":    sources,
         })
 
     def visitUser_action(self, ctx: ConstraintParser.User_actionContext):
@@ -166,6 +175,29 @@ class ASTBuilder(ConstraintVisitor):
             "type":   "CallEvent",
             "api":    self.visit(ctx.api()),
             "params": params,
+        })
+
+    def visitPersist_event(self, ctx: ConstraintParser.Persist_eventContext):
+        return _check_required({
+            "type":    "PersistEvent",
+            "element": self.visit(ctx.ui_element()),
+        })
+
+    def visitSource_set(self, ctx: ConstraintParser.Source_setContext):
+        # source_item alternatives — possibly an empty set.
+        return [self.visit(item) for item in (ctx.source_item() or [])]
+
+    def visitSource_item(self, ctx: ConstraintParser.Source_itemContext):
+        # Either `r(ui_element)` or `r(api_result)`. ui_element() returns
+        # None for the api_result form, which we encode as the sentinel
+        # element name "api_result" — matching ReadExpr's existing shape.
+        if ctx.ui_element() is not None:
+            element = self.visit(ctx.ui_element())
+        else:
+            element = "api_result"
+        return _check_required({
+            "type":    "ReadExpr",
+            "element": element,
         })
 
     def visitGuard(self, ctx: ConstraintParser.GuardContext):

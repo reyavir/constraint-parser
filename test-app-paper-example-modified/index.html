@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Atlas Goods — Cart</title>
+<style>
+  :root {
+    --ink:       #1a1a1c;
+    --muted:     #6b6b73;
+    --hairline:  #e6e6ea;
+    --bg:        #fafaf7;
+    --card:      #ffffff;
+    --accent:    #1f3b6d;
+    --accent-soft:#eaf0fb;
+    --good:      #15803d;
+    --good-soft: #ecfdf3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    margin: 0; color: var(--ink); background: var(--bg);
+    min-height: 100vh; display: flex; justify-content: center;
+    padding: 3rem 1.5rem;
+  }
+  .stage {
+    width: 100%; max-width: 480px;
+  }
+  .brand {
+    text-align: center; margin-bottom: 2rem;
+  }
+  .brand h1 {
+    margin: 0; font-size: 1.4rem; font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .brand p {
+    margin: 0.25rem 0 0; color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px rgba(0,0,0,0.04);
+    padding: 1.5rem;
+  }
+  h2.section {
+    margin: 0 0 0.9rem;
+    font-size: 0.78rem; font-weight: 700;
+    color: var(--muted); letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .line-items { display: grid; gap: 0.5rem; }
+  .item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center; gap: 0.5rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px dashed var(--hairline);
+  }
+  .item:last-child { border-bottom: none; }
+  .item .name { font-weight: 500; }
+  .item .meta { color: var(--muted); font-size: 0.8rem; }
+  .item .price {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+
+  .totals {
+    margin-top: 1rem; padding-top: 1rem;
+    border-top: 1px solid var(--hairline);
+    display: grid; gap: 0.4rem;
+  }
+  .totals .row {
+    display: flex; justify-content: space-between;
+    color: var(--muted); font-size: 0.88rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .totals .grand {
+    display: flex; justify-content: space-between;
+    color: var(--ink); font-weight: 600; font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+    padding-top: 0.4rem;
+    border-top: 1px solid var(--hairline);
+    margin-top: 0.3rem;
+  }
+
+  .promo-card {
+    margin-top: 1rem;
+    background: var(--card);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+  }
+  .promo-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.5rem;
+  }
+  .promo-row input {
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .promo-row input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .promo-row button {
+    padding: 0.55rem 1.1rem;
+    border: none; border-radius: 8px;
+    background: var(--accent); color: white;
+    font: inherit; font-weight: 600;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .promo-row button:hover { background: #16315b; }
+
+  .promo-status {
+    margin-top: 0.7rem;
+    min-height: 1.2rem;
+    font-size: 0.85rem;
+    color: var(--good);
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .promo-status:empty { display: none; }
+  .promo-status.success::before {
+    content: "✓"; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px;
+    background: var(--good-soft); color: var(--good);
+    border-radius: 50%; font-size: 0.7rem;
+  }
+
+  .checkout-row {
+    margin-top: 1.25rem;
+    display: flex; align-items: center; gap: 0.7rem;
+  }
+  .checkout-row button {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: none; border-radius: 10px;
+    background: var(--ink); color: white;
+    font: inherit; font-weight: 600;
+    cursor: pointer;
+  }
+  .checkout-row button:hover { background: #000; }
+  .checkout-row .pay-total {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+<div class="brand" data-cv-label="Atlas Goods Order summary" id="cv_0001">
+<h1 data-cv-label="Atlas Goods" id="shop-name">Atlas Goods</h1>
+<p data-cv-label="Order summary" id="cv_0002">Order summary</p>
+</div>
+<div class="card">
+<h2 class="section" data-cv-label="Cart" id="cv_0003">Cart</h2>
+<div class="line-items">
+<div class="item">
+<div>
+<div class="name" data-cv-label="Linen Tote" id="item-1-name">Linen Tote</div>
+<div class="meta" data-cv-label="Qty 1 · Sand" id="cv_0004">Qty 1 · Sand</div>
+</div>
+<div class="price" data-cv-label="$ 42.00" id="cv_0005">$<span data-cv-label="42.00" id="item-1-price">42.00</span></div>
+</div>
+<div class="item">
+<div>
+<div class="name" data-cv-label="Ceramic Mug" id="item-2-name">Ceramic Mug</div>
+<div class="meta" data-cv-label="Qty 2 · Off-white" id="cv_0006">Qty 2 · Off-white</div>
+</div>
+<div class="price" data-cv-label="$ 28.00" id="cv_0007">$<span data-cv-label="28.00" id="item-2-price">28.00</span></div>
+</div>
+<div class="item">
+<div>
+<div class="name" data-cv-label="Notebook Set" id="item-3-name">Notebook Set</div>
+<div class="meta" data-cv-label="Qty 1 · Ruled, 3-pack" id="cv_0008">Qty 1 · Ruled, 3-pack</div>
+</div>
+<div class="price" data-cv-label="$ 18.00" id="cv_0009">$<span data-cv-label="18.00" id="item-3-price">18.00</span></div>
+</div>
+</div>
+<div class="totals">
+<div class="row" data-cv-label="Subtotal $ 88.00" id="cv_0010"><span data-cv-label="Subtotal" id="cv_0011">Subtotal</span><span data-cv-label="$ 88.00" id="cv_0012">$<span data-cv-label="88.00" id="subtotal">88.00</span></span></div>
+<div class="row" data-cv-label="Shipping $ 6.00" id="cv_0013"><span data-cv-label="Shipping" id="cv_0014">Shipping</span><span data-cv-label="$ 6.00" id="cv_0015">$<span data-cv-label="6.00" id="shipping">6.00</span></span></div>
+<div class="row" data-cv-label="Discount −$ 0.00" id="cv_0016"><span data-cv-label="Discount" id="cv_0017">Discount</span><span data-cv-label="−$ 0.00" id="cv_0018">−$<span data-cv-label="0.00" id="discount">0.00</span></span></div>
+<div class="grand" data-cv-label="Total $ 94.00" id="cv_0019"><span data-cv-label="Total" id="cv_0020">Total</span><span data-cv-label="$ 94.00" id="cv_0021">$<span data-cv-label="94.00" id="total">94.00</span></span></div>
+</div>
+</div>
+<div class="promo-card">
+<h2 class="section" data-cv-label="Promo code" id="cv_0022">Promo code</h2>
+<div class="promo-row" data-cv-label="Apply" id="cv_0023">
+<input autocomplete="off" id="promo-input" placeholder="ENTER CODE" type="text"/>
+<button data-cv-label="Apply" id="apply-promo-btn">Apply</button>
+</div>
+<div class="promo-status" id="promo-status"></div>
+</div>
+<div class="checkout-row" data-cv-label="Checkout · $ 94.00" id="cv_0024">
+<button data-cv-label="Checkout · $ 94.00" id="checkout-btn">Checkout · <span class="pay-total" data-cv-label="$ 94.00" id="cv_0025">$<span data-cv-label="94.00" id="checkout-total">94.00</span></span></button>
+</div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

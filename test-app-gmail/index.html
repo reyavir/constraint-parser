@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Mailbox — inbox</title>
+<style>
+  :root {
+    --gm-red:       #c5221f;
+    --gm-red-soft:  #d93025;
+    --gm-blue:      #1a73e8;
+    --gm-gray-bg:   #f6f8fc;
+    --gm-side-bg:   #f6f8fc;
+    --gm-divider:   #dadce0;
+    --gm-text:      #202124;
+    --gm-muted:     #5f6368;
+    --gm-hover:     #f1f3f4;
+    --gm-selected:  #c2dbff;
+    --gm-unread:    #e8f0fe;
+    --gm-yellow:    #fbbc04;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    margin: 0; color: var(--gm-text); background: var(--gm-gray-bg); min-height: 100vh;
+  }
+
+  header {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.5rem 1rem;
+    background: white; border-bottom: 1px solid var(--gm-divider);
+  }
+  header .brand {
+    color: var(--gm-red); font-size: 1.2rem; font-weight: 600;
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  header .brand::before {
+    content: '✉'; font-size: 1.4rem;
+  }
+  header .search-wrap {
+    flex: 1; max-width: 720px;
+    display: flex; gap: 0.4rem; align-items: center;
+    background: var(--gm-side-bg); border-radius: 8px;
+    padding: 0.3rem 0.6rem;
+  }
+  header input[type="text"] {
+    flex: 1; padding: 0.35rem; border: none; background: transparent;
+    font-size: 0.9rem; outline: none;
+  }
+  header .search-meta {
+    color: var(--gm-muted); font-size: 0.75rem;
+  }
+  header .top-actions {
+    margin-left: auto; display: flex; gap: 0.5rem; align-items: center;
+  }
+  header .total-unread {
+    background: var(--gm-red); color: white;
+    border-radius: 12px; padding: 0.15rem 0.6rem;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  header button {
+    background: var(--gm-blue); color: white; border: none;
+    border-radius: 4px; padding: 0.35rem 0.7rem;
+    font-size: 0.85rem; cursor: pointer;
+  }
+  header button.ghost {
+    background: white; color: var(--gm-text);
+    border: 1px solid var(--gm-divider);
+  }
+  header button:hover { filter: brightness(1.05); }
+
+  main { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 50px); }
+
+  aside.sidebar {
+    background: var(--gm-side-bg);
+    padding: 0.5rem 0.4rem;
+    border-right: 1px solid var(--gm-divider);
+  }
+  .sidebar-section-h {
+    color: var(--gm-muted); font-size: 0.7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 0.7rem 0.7rem 0.3rem;
+  }
+  .folder-row, .label-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.35rem 0.6rem; border-radius: 16px;
+    cursor: pointer;
+  }
+  .folder-row:hover, .label-row:hover { background: var(--gm-hover); }
+  .folder-row.active { background: #fce8e6; color: var(--gm-red); font-weight: 600; }
+  .folder-row > .icon { width: 18px; text-align: center; }
+  .folder-row > .label, .label-row > .label {
+    flex: 1; font-size: 0.88rem;
+  }
+  .folder-row > .count, .label-row > .count {
+    color: var(--gm-muted); font-size: 0.78rem; font-weight: 600;
+  }
+  .label-row > .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .label-row.work > .dot { background: #1a73e8; }
+  .label-row.personal > .dot { background: #34a853; }
+  .label-row.important > .dot { background: #fbbc04; }
+
+  .main-pane { background: white; }
+  .pane-toolbar {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--gm-divider);
+  }
+  .pane-toolbar .active-folder {
+    font-size: 1rem; font-weight: 600;
+  }
+  .pane-toolbar .filter-status {
+    color: var(--gm-muted); font-size: 0.8rem;
+  }
+  .pane-toolbar button {
+    background: white; border: 1px solid var(--gm-divider);
+    border-radius: 4px; padding: 0.25rem 0.55rem;
+    font-size: 0.8rem; cursor: pointer;
+  }
+  .pane-toolbar button:hover { background: var(--gm-hover); }
+
+  ul.msg-list { list-style: none; margin: 0; padding: 0; }
+  li.msg-row {
+    display: grid;
+    grid-template-columns: 24px 24px 160px 1fr auto;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid var(--gm-divider);
+  }
+  li.msg-row.unread { background: var(--gm-unread); font-weight: 600; }
+  li.msg-row:hover { background: var(--gm-hover); }
+  li.msg-row.selected { background: var(--gm-selected); }
+  li.msg-row button.star-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--gm-muted); font-size: 1rem;
+  }
+  li.msg-row button.star-btn.starred { color: var(--gm-yellow); }
+  li.msg-row button.pick-btn {
+    background: none; border: 1px solid var(--gm-divider);
+    border-radius: 3px; padding: 0.1rem 0.3rem;
+    font-size: 0.7rem; cursor: pointer;
+  }
+  li.msg-row .sender { color: var(--gm-text); font-size: 0.85rem; }
+  li.msg-row .subject { font-size: 0.85rem; }
+  li.msg-row .subject .snippet { color: var(--gm-muted); font-weight: 400; }
+  li.msg-row .actions {
+    display: flex; gap: 0.25rem;
+  }
+  li.msg-row .actions button {
+    background: white; border: 1px solid var(--gm-divider);
+    border-radius: 3px; padding: 0.18rem 0.42rem;
+    font-size: 0.72rem; cursor: pointer;
+  }
+  li.msg-row .actions button:hover { background: var(--gm-hover); }
+
+  section.detail {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid var(--gm-divider);
+    background: #fafbff;
+  }
+  section.detail h2 {
+    margin: 0 0 0.4rem; font-size: 1rem;
+  }
+  section.detail .meta { color: var(--gm-muted); font-size: 0.8rem; margin-bottom: 0.5rem; }
+  section.detail .body { font-size: 0.9rem; }
+  section.detail .detail-actions {
+    margin-top: 0.6rem; display: flex; gap: 0.4rem;
+  }
+  section.detail .detail-actions button {
+    background: white; border: 1px solid var(--gm-divider);
+    border-radius: 4px; padding: 0.3rem 0.7rem;
+    font-size: 0.82rem; cursor: pointer;
+  }
+  section.detail .detail-actions button.primary {
+    background: var(--gm-blue); color: white; border: 1px solid var(--gm-blue);
+  }
+
+  section.compose {
+    padding: 0.8rem 1rem;
+    background: #fffbf0;
+    border-top: 1px solid var(--gm-divider);
+  }
+  section.compose h3 { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--gm-muted); }
+  section.compose .field-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    margin-bottom: 0.4rem;
+  }
+  section.compose .field-row label { min-width: 60px; color: var(--gm-muted); font-size: 0.8rem; }
+  section.compose input[type="text"], section.compose textarea {
+    flex: 1; padding: 0.35rem 0.5rem;
+    border: 1px solid var(--gm-divider); border-radius: 4px;
+    font-family: inherit; font-size: 0.85rem;
+  }
+  section.compose textarea { resize: vertical; }
+  section.compose .compose-actions { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+  section.compose .compose-actions button {
+    padding: 0.35rem 0.85rem; border-radius: 4px; font-size: 0.82rem;
+    cursor: pointer; border: 1px solid var(--gm-divider); background: white;
+  }
+  section.compose .compose-actions button.primary {
+    background: var(--gm-blue); color: white; border: 1px solid var(--gm-blue);
+  }
+  section.compose .compose-status {
+    color: var(--gm-muted); font-size: 0.75rem; margin-left: auto;
+    align-self: center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand" id="brand-name">Mailbox</div>
+  <div class="search-wrap">
+    <input id="search-input" type="text" placeholder="Search mail…"/>
+    <button id="search-clear-btn" class="ghost">Clear</button>
+    <div class="search-meta">Filter: <span id="search-status">all</span></div>
+  </div>
+  <div class="top-actions">
+    <span class="total-unread">Unread: <span id="total-unread-count">3</span></span>
+    <button id="mark-all-read-btn" class="ghost">Mark all read</button>
+    <button id="compose-btn">+ Compose</button>
+  </div>
+</header>
+
+<main>
+
+  <aside class="sidebar">
+    <div class="sidebar-section-h">Folders</div>
+
+    <div class="folder-row active" id="folder-inbox-row">
+      <span class="icon">📥</span>
+      <button class="label" id="folder-inbox-btn">Inbox</button>
+      <span class="count" id="folder-inbox-count">3</span>
+    </div>
+    <div class="folder-row" id="folder-sent-row">
+      <span class="icon">📤</span>
+      <button class="label" id="folder-sent-btn">Sent</button>
+      <span class="count" id="folder-sent-count">12</span>
+    </div>
+    <div class="folder-row" id="folder-drafts-row">
+      <span class="icon">📝</span>
+      <button class="label" id="folder-drafts-btn">Drafts</button>
+      <span class="count" id="folder-drafts-count">1</span>
+    </div>
+    <div class="folder-row" id="folder-spam-row">
+      <span class="icon">⚠</span>
+      <button class="label" id="folder-spam-btn">Spam</button>
+      <span class="count" id="folder-spam-count">0</span>
+    </div>
+    <div class="folder-row" id="folder-trash-row">
+      <span class="icon">🗑</span>
+      <button class="label" id="folder-trash-btn">Trash</button>
+      <span class="count" id="folder-trash-count">2</span>
+    </div>
+
+    <div class="sidebar-section-h">Labels</div>
+
+    <div class="label-row work">
+      <span class="dot"></span>
+      <button class="label" id="label-work-btn">Work</button>
+      <span class="count" id="label-work-count">5</span>
+    </div>
+    <div class="label-row personal">
+      <span class="dot"></span>
+      <button class="label" id="label-personal-btn">Personal</button>
+      <span class="count" id="label-personal-count">2</span>
+    </div>
+    <div class="label-row important">
+      <span class="dot"></span>
+      <button class="label" id="label-important-btn">Important</button>
+      <span class="count" id="label-important-count">1</span>
+    </div>
+  </aside>
+
+  <div class="main-pane">
+
+    <div class="pane-toolbar">
+      <span class="active-folder">Active: <span id="active-folder-name">Inbox</span></span>
+      <span class="filter-status">Active label: <span id="active-label-name">none</span></span>
+    </div>
+
+    <ul class="msg-list">
+      <li class="msg-row unread" id="msg-1-row">
+        <button class="star-btn" id="star-1-btn">☆</button>
+        <button class="pick-btn" id="msg-1-pick">Open</button>
+        <span class="sender" id="msg-1-sender">Alice</span>
+        <span class="subject">
+          <strong id="msg-1-subject">Project kickoff</strong>
+          <span class="snippet" id="msg-1-snippet">— ready to start Monday</span>
+        </span>
+        <span class="actions">
+          <button id="archive-1-btn">Archive</button>
+          <button id="mark-read-1-btn">Mark read</button>
+          <button id="delete-1-btn">Delete</button>
+        </span>
+      </li>
+      <li class="msg-row unread" id="msg-2-row">
+        <button class="star-btn" id="star-2-btn">☆</button>
+        <button class="pick-btn" id="msg-2-pick">Open</button>
+        <span class="sender" id="msg-2-sender">Bob</span>
+        <span class="subject">
+          <strong id="msg-2-subject">Lunch tomorrow?</strong>
+          <span class="snippet" id="msg-2-snippet">— Le Pain at noon</span>
+        </span>
+        <span class="actions">
+          <button id="archive-2-btn">Archive</button>
+          <button id="mark-read-2-btn">Mark read</button>
+          <button id="delete-2-btn">Delete</button>
+        </span>
+      </li>
+      <li class="msg-row unread" id="msg-3-row">
+        <button class="star-btn" id="star-3-btn">☆</button>
+        <button class="pick-btn" id="msg-3-pick">Open</button>
+        <span class="sender" id="msg-3-sender">Carol</span>
+        <span class="subject">
+          <strong id="msg-3-subject">Receipts for Q3</strong>
+          <span class="snippet" id="msg-3-snippet">— forwarded from finance</span>
+        </span>
+        <span class="actions">
+          <button id="archive-3-btn">Archive</button>
+          <button id="mark-read-3-btn">Mark read</button>
+          <button id="delete-3-btn">Delete</button>
+        </span>
+      </li>
+    </ul>
+
+    <section class="detail">
+      <h2>Selected: <span id="selected-subject">(no message)</span></h2>
+      <div class="meta">From: <span id="selected-sender">—</span> · ID: <span id="selected-id">none</span></div>
+      <div class="body" id="selected-body">Pick a message above to view its details.</div>
+      <div class="detail-actions">
+        <button id="reply-btn" class="primary">Reply</button>
+        <button id="forward-btn">Forward</button>
+        <button id="mark-spam-btn">Report spam</button>
+      </div>
+    </section>
+
+    <section class="compose">
+      <h3>Compose</h3>
+      <div class="field-row">
+        <label>To:</label>
+        <input id="compose-to" type="text" placeholder="recipient@example.com"/>
+      </div>
+      <div class="field-row">
+        <label>Subject:</label>
+        <input id="compose-subject" type="text" placeholder="Subject"/>
+      </div>
+      <div class="field-row" style="align-items: flex-start;">
+        <label style="padding-top: 0.4rem;">Body:</label>
+        <textarea id="compose-body" rows="3" placeholder="Write your message…"></textarea>
+      </div>
+      <div class="compose-actions">
+        <button id="send-btn" class="primary">Send</button>
+        <button id="save-draft-btn">Save draft</button>
+        <button id="discard-btn">Discard</button>
+        <span class="compose-status">Status: <span id="compose-status">idle</span></span>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

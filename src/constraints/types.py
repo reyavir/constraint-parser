@@ -65,3 +65,4 @@ class ConstraintType(Enum):
     ORDER               = auto()
     GUARD               = auto()
     STATIC              = auto()
+    PERSIST             = auto()

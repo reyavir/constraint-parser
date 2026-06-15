@@ -1,4 +1,4 @@
-# Generated from /Users/reyavir/Documents/constraint-verification/Constraint.g4 by ANTLR 4.13.2
+# Generated from Constraint.g4 by ANTLR 4.13.2
 from antlr4 import *
 if "." in __name__:
     from .ConstraintParser import ConstraintParser
@@ -89,6 +89,24 @@ class ConstraintListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by ConstraintParser#source_set.
+    def enterSource_set(self, ctx:ConstraintParser.Source_setContext):
+        pass
+
+    # Exit a parse tree produced by ConstraintParser#source_set.
+    def exitSource_set(self, ctx:ConstraintParser.Source_setContext):
+        pass
+
+
+    # Enter a parse tree produced by ConstraintParser#source_item.
+    def enterSource_item(self, ctx:ConstraintParser.Source_itemContext):
+        pass
+
+    # Exit a parse tree produced by ConstraintParser#source_item.
+    def exitSource_item(self, ctx:ConstraintParser.Source_itemContext):
+        pass
+
+
     # Enter a parse tree produced by ConstraintParser#user_action.
     def enterUser_action(self, ctx:ConstraintParser.User_actionContext):
         pass
@@ -104,6 +122,15 @@ class ConstraintListener(ParseTreeListener):
 
     # Exit a parse tree produced by ConstraintParser#system_event.
     def exitSystem_event(self, ctx:ConstraintParser.System_eventContext):
+        pass
+
+
+    # Enter a parse tree produced by ConstraintParser#persist_event.
+    def enterPersist_event(self, ctx:ConstraintParser.Persist_eventContext):
+        pass
+
+    # Exit a parse tree produced by ConstraintParser#persist_event.
+    def exitPersist_event(self, ctx:ConstraintParser.Persist_eventContext):
         pass
 
 

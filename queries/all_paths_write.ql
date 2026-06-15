@@ -48,10 +48,170 @@ predicate isElementRef(string id, Expr ref) {
   )
 }
 
-predicate registeredHandler(string id, Function fn) {
+predicate registeredHandlerById(string id, Function fn) {
   exists(MethodCallExpr addEvt |
     addEvt.getMethodName() = "addEventListener" and
     isElementRef(id, addEvt.getReceiver()) and
+    (
+      fn = addEvt.getArgument(1)
+      or
+      exists(VarRef ref |
+        ref = addEvt.getArgument(1) and
+        fn.getName() = ref.getName() and
+        fn.getFile() = addEvt.getFile()
+      )
+    )
+  )
+}
+
+bindingset[id]
+predicate registeredHandlerByClass(string id, Function fn) {
+  id.matches(".%") and
+  exists(string cls |
+    cls = id.suffix(1) and
+    registeredViaForEach(cls, fn)
+  )
+}
+
+bindingset[id]
+predicate registeredHandler(string id, Function fn) {
+  registeredHandlerById(id, fn)
+  or
+  registeredHandlerByClass(id, fn)
+  or
+  exists(string datasetKey |
+    datasetKey = [__DATASET_KEYS__] and
+    registeredViaBodyDelegation(id, datasetKey, fn)
+  )
+  or
+  registeredViaArrayForEachId(id, fn)
+  or
+  registeredViaPageLoad(id, fn)
+}
+
+/** Pattern E — page-load lifecycle. Reserved synthetic id. */
+bindingset[id]
+predicate registeredViaPageLoad(string id, Function fn) {
+  id = "page-load" and
+  (
+    exists(MethodCallExpr addEvt |
+      addEvt.getMethodName() = "addEventListener" and
+      addEvt.getReceiver().(VarRef).getName() = ["window", "document"] and
+      addEvt.getArgument(0).getStringValue() = ["load", "DOMContentLoaded"] and
+      (
+        fn = addEvt.getArgument(1)
+        or
+        exists(VarRef ref |
+          ref = addEvt.getArgument(1) and
+          fn.getName() = ref.getName() and
+          fn.getFile() = addEvt.getFile()
+        )
+      )
+    )
+    or
+    exists(AssignExpr assign, PropAccess lhs |
+      assign.getLhs() = lhs and
+      lhs.getPropertyName() = "onload" and
+      lhs.getBase().(VarRef).getName() = "window" and
+      (
+        fn = assign.getRhs()
+        or
+        exists(VarRef ref |
+          ref = assign.getRhs() and
+          fn.getName() = ref.getName() and
+          fn.getFile() = assign.getFile()
+        )
+      )
+    )
+  )
+}
+
+/** Pattern D — forEach + getElementById(prefix + loopVar). See handler_exists.ql. */
+bindingset[id]
+predicate registeredViaArrayForEachId(string id, Function fn) {
+  exists(MethodCallExpr forEach, ArrayExpr arr, Function cb,
+         Variable loopVar, MethodCallExpr getEl, AddExpr concatExpr,
+         MethodCallExpr addEvt, string prefix, string suffix |
+    forEach.getMethodName() = "forEach" and
+    exists(Variable arrVar, VariableDeclarator decl |
+      forEach.getReceiver().(VarRef).getVariable() = arrVar and
+      decl.getBindingPattern().(VarRef).getVariable() = arrVar and
+      arr = decl.getInit()
+    ) and
+    suffix = arr.getAnElement().getStringValue() and
+    cb = forEach.getArgument(0) and
+    loopVar = cb.getAParameter().(SimpleParameter).getVariable() and
+    getEl.getEnclosingFunction() = cb and
+    getEl.getMethodName() = "getElementById" and
+    concatExpr = getEl.getArgument(0) and
+    (
+      concatExpr.getLeftOperand().getStringValue() = prefix and
+      concatExpr.getRightOperand().(VarRef).getVariable() = loopVar
+      or
+      concatExpr.getRightOperand().getStringValue() = prefix and
+      concatExpr.getLeftOperand().(VarRef).getVariable() = loopVar
+    ) and
+    id = prefix + suffix and
+    addEvt.getMethodName() = "addEventListener" and
+    addEvt.getReceiver() = getEl and
+    (
+      fn = addEvt.getArgument(1)
+      or
+      exists(VarRef ref |
+        ref = addEvt.getArgument(1) and
+        fn.getName() = ref.getName() and
+        fn.getFile() = addEvt.getFile()
+      )
+    )
+  )
+}
+
+/** Pattern C — body-level event delegation. See handler_exists.ql. */
+bindingset[id, datasetKey]
+predicate registeredViaBodyDelegation(string id, string datasetKey, Function fn) {
+  exists(MethodCallExpr addEvt, Function cb |
+    addEvt.getMethodName() = "addEventListener" and
+    isGlobalListenerTarget(addEvt.getReceiver()) and
+    cb = addEvt.getArgument(1) and
+    (
+      exists(PropAccess dsAccess, PropAccess datasetProp |
+        dsAccess.getEnclosingFunction() = cb and
+        dsAccess.getPropertyName() = datasetKey and
+        datasetProp = dsAccess.getBase() and
+        datasetProp.getPropertyName() = "dataset"
+      )
+      or
+      exists(EqualityTest eq, Expr lit |
+        eq.getEnclosingFunction() = cb and
+        eq.getAnOperand() = lit and
+        lit.getStringValue() = id
+      )
+    ) and
+    fn = cb
+  )
+}
+
+predicate isGlobalListenerTarget(Expr e) {
+  e.(VarRef).getName() = ["document", "window"]
+  or
+  exists(PropAccess pa | pa = e |
+    pa.getPropertyName() = "body" and
+    pa.getBase().(VarRef).getName() = "document"
+  )
+}
+
+/** Pattern A — handler bound by querySelectorAll(...).forEach(el =>
+ *  el.addEventListener(...)). See path_exists.ql for the docstring. */
+predicate registeredViaForEach(string cls, Function fn) {
+  exists(MethodCallExpr querySel, MethodCallExpr forEach,
+         Function cb, MethodCallExpr addEvt |
+    querySel.getMethodName() = "querySelectorAll" and
+    querySel.getArgument(0).getStringValue() = "." + cls and
+    forEach.getMethodName() = "forEach" and
+    forEach.getReceiver() = querySel and
+    cb = forEach.getArgument(0) and
+    addEvt.getMethodName() = "addEventListener" and
+    addEvt.getEnclosingFunction() = cb and
     (
       fn = addEvt.getArgument(1)
       or
@@ -71,12 +231,78 @@ predicate writesElement(string id, AssignExpr write) {
   )
 }
 
-/** A basic block in fn that directly assigns to the target. */
+/**
+ * Innerhtml-assignment-as-creation of a child element with `id="X"`.
+ * Same shape and limitations as in path_exists.ql.
+ */
+bindingset[id]
+predicate isCreatedInInnerHTML(string id, AssignExpr write) {
+  exists(PropAccess lhs |
+    lhs = write.getLhs() and
+    lhs.getPropertyName() = ["innerHTML", "outerHTML"]
+  ) and
+  write.getRhs().toString().regexpMatch(
+    ".*\\bid\\s*=\\s*[\"']" + id + "[\"'].*"
+  )
+}
+
+/**
+ * DOM-mutation method calls that change what the element renders.
+ * Treated as writes alongside `el.prop = value` assignments.
+ */
+predicate writesElementVia(string id, MethodCallExpr call) {
+  call.getMethodName() = [
+    "appendChild", "append", "prepend",
+    "insertBefore", "replaceChild", "replaceChildren",
+    "insertAdjacentHTML", "insertAdjacentElement",
+    "removeChild", "remove",
+    "setAttribute"
+  ] and
+  isElementRef(id, call.getReceiver())
+}
+
+/**
+ * `localStorage.setItem(key, …)` or `sessionStorage.setItem(key, …)`.
+ * Disabled when __STORAGE_KEY__ is empty (DOM-only constraints).
+ */
+predicate writesStorage(string key, MethodCallExpr call) {
+  key != "" and
+  call.getMethodName() = "setItem" and
+  call.getArgument(0).getStringValue() = key and
+  exists(VarRef base |
+    base = call.getReceiver() and
+    base.getName() = ["localStorage", "sessionStorage"]
+  )
+}
+
+/** A basic block in fn that directly writes the target — DOM assignment,
+ *  DOM-mutation method call, or storage setItem. */
 predicate writingBlock(Function fn, ReachableBasicBlock bb) {
   exists(AssignExpr w, Stmt s |
     writesElement("__TARGET_ID__", w) and
     w.getEnclosingFunction() = fn and
     s = w.getEnclosingStmt() and
+    bb.getANode() = s.getFirstControlFlowNode()
+  )
+  or
+  exists(MethodCallExpr c, Stmt s |
+    writesElementVia("__TARGET_ID__", c) and
+    c.getEnclosingFunction() = fn and
+    s = c.getEnclosingStmt() and
+    bb.getANode() = s.getFirstControlFlowNode()
+  )
+  or
+  exists(AssignExpr w, Stmt s |
+    isCreatedInInnerHTML("__TARGET_ID__", w) and
+    w.getEnclosingFunction() = fn and
+    s = w.getEnclosingStmt() and
+    bb.getANode() = s.getFirstControlFlowNode()
+  )
+  or
+  exists(MethodCallExpr c, Stmt s |
+    writesStorage("__STORAGE_KEY__", c) and
+    c.getEnclosingFunction() = fn and
+    s = c.getEnclosingStmt() and
     bb.getANode() = s.getFirstControlFlowNode()
   )
 }

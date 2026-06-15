@@ -49,7 +49,53 @@ from typing import Any
 
 from .constraints.classifier import classify
 from .constraints.types import ConstraintType
+from .mapping.pipeline import MAPPING_FILE
 from .verifier import run_query, QUERIES_DIR
+
+
+# ---------------------------------------------------------------------------
+# Mapping helpers — used to route storage-target constraints to the right
+# query sinks. A target id that lives in mapping.storage is a storage
+# entry (localStorage / sessionStorage); everything else is a DOM element.
+# ---------------------------------------------------------------------------
+
+def _safe_load_mapping() -> dict:
+    """Read element_mapping.json if present; tolerate any error silently."""
+    try:
+        import json
+        if MAPPING_FILE.exists():
+            with MAPPING_FILE.open() as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+
+def _dataset_keys_substitution(action_id: str, mapping: dict) -> str:
+    """
+    Build the QL list-literal contents that ``__DATASET_KEYS__`` substitutes
+    to in the registeredViaBodyDelegation disjunct. The action element's
+    data-* attribute names (camelCased) plus a no-match sentinel so the
+    substitution is always non-empty — CodeQL rejects empty `[]` literals.
+
+    Example: an element with ``data-add`` and ``data-q`` → ``"add", "q"``
+    plus the sentinel. An element with no data-* attributes → just the
+    sentinel, meaning the body-delegation disjunct effectively never fires.
+    """
+    entry = (mapping.get("elements") or {}).get(action_id) or {}
+    keys = entry.get("data_attrs") or []
+    safe = [k for k in keys if isinstance(k, str) and k]
+    safe.append("__cv_no_match__")
+    return ", ".join(f'"{_ql_escape(k)}"' for k in safe)
+
+
+def _storage_key_for(target_id: str, mapping: dict) -> str:
+    """Return the storage key for *target_id* if it's a storage entry,
+    else the empty string (which the CodeQL queries treat as "no
+    storage sink to match")."""
+    entry = (mapping.get("storage") or {}).get(target_id) or {}
+    key = entry.get("key")
+    return key if isinstance(key, str) else ""
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +128,6 @@ _PRIMITIVES_FOR_TYPE: dict[ConstraintType, list[str]] = {
 # whenever the condition carries a guard, e.g. A(ei), r(ei) = v.
 
 _SKIP_TYPES = {
-    ConstraintType.API_CALL,
     ConstraintType.GUARD,
     ConstraintType.ORDER,
 }
@@ -97,8 +142,23 @@ def stage1_check(ast: dict, db_path: str = "./codeql-db") -> dict:
 
     if ctype in _SKIP_TYPES:
         return _skip(f"{ctype.name} is future work — Stage 1 only covers UI-to-UI.")
+
+    # `persist(target)` is composite — split into save side (action writes
+    # storage) + restore side (page-load reads storage). Dispatch early
+    # so we don't try to fit it into the normal primitive pipeline.
+    if ctype == ConstraintType.PERSIST:
+        return _run_persist_check(ast, db_path)
+
+    # `P(call(api) | A(action))` — handler-to-call reachability via the
+    # call_reaches primitive. Negation flip is the same shape as Row 4
+    # (zero rows = PASS for `= 0`).
+    if ctype == ConstraintType.API_CALL:
+        return _run_api_call_check(ast, db_path)
+
+    # Other API references (StatusExpr or call inside a non-API_CALL
+    # constraint) remain unsupported until runtime arrives.
     if _contains_api_ref(ast):
-        return _skip("Constraint references call(api) or status(api); Stage 1 is UI-only.")
+        return _skip("Constraint references status(api); Stage 1 is UI-only.")
 
     primitives = _PRIMITIVES_FOR_TYPE.get(ctype)
     if not primitives:
@@ -118,6 +178,69 @@ def stage1_check(ast: dict, db_path: str = "./codeql-db") -> dict:
             "checks":  [],
         }
 
+    # Load mapping once so each runner can ask whether a target is a
+    # storage entry and, if so, what its localStorage / sessionStorage
+    # key is. Empty mapping is treated as "all targets are DOM."
+    mapping = _safe_load_mapping()
+
+    # Compute the dataset-keys substitution for the body-delegation
+    # disjunct of registeredHandler. Threaded through every per-action
+    # query call so the queries can recognise
+    # `document.addEventListener('click', e => { if (e.target.dataset.X) {...} })`
+    # binding patterns and tie them to specific element ids.
+    dataset_keys = _dataset_keys_substitution(action_id, mapping)
+
+    # Precheck: did our static analysis actually find any handler for
+    # this action? Body-delegated handlers (document.addEventListener)
+    # and `.onclick = fn` assignments are not yet recognised; running
+    # primitives against an empty handler set produces misleading
+    # PASS verdicts (notably all_paths_write passes vacuously when there
+    # are no exits to enumerate). SKIP early with a clear reason.
+    handler_rows, handler_query = _run_template(
+        "handler_exists.ql",
+        db_path=db_path,
+        action_id=action_id,
+        dataset_keys=dataset_keys)
+    if not handler_rows:
+        # For synthetic lifecycle actions (page-load), a missing handler IS
+        # the bug we're asserting against — flag instead of skip.
+        if action_id == "page-load":
+            return {
+                "result":  "FLAGGED",
+                "reason":  ("no page-load handler found (no "
+                            "window.addEventListener('load'), "
+                            "document.addEventListener('DOMContentLoaded'), "
+                            "or window.onload = fn)"),
+                "checks":  [{
+                    "name":     "handler_exists",
+                    "action":   action_id,
+                    "target":   None,
+                    "passed":   False,
+                    "evidence": [],
+                    "reason":   "no page-load handler found",
+                    "query":    handler_query,
+                }],
+            }
+        return {
+            "result":  "SKIP",
+            "reason":  (f"No addEventListener handler recognised for "
+                        f"A({action_id}). Recognised patterns: "
+                        f"`getElementById('{action_id}').addEventListener(...)` "
+                        f"and `querySelectorAll('.cls').forEach(el => "
+                        f"el.addEventListener(...))`. Body-delegated handlers "
+                        f"(document.addEventListener) and `.onclick = fn` "
+                        f"assignments are not recognised."),
+            "checks":  [{
+                "name":     "handler_exists",
+                "action":   action_id,
+                "target":   None,
+                "passed":   False,
+                "evidence": [],
+                "reason":   f"no handler recognised for A({action_id})",
+                "query":    handler_query,
+            }],
+        }
+
     checks: list[dict] = []
     for primitive in primitives:
         runner = _PRIMITIVE_RUNNERS[primitive]
@@ -125,6 +248,8 @@ def stage1_check(ast: dict, db_path: str = "./codeql-db") -> dict:
             check = runner(ast=ast,
                            action_id=action_id,
                            target_id=tid,
+                           storage_key=_storage_key_for(tid, mapping),
+                           dataset_keys=dataset_keys,
                            db_path=db_path)
             if check is not None:
                 checks.append(check)
@@ -137,6 +262,8 @@ def stage1_check(ast: dict, db_path: str = "./codeql-db") -> dict:
             checks.append(_run_guarded_write(ast=ast,
                                              action_id=action_id,
                                              target_id=tid,
+                                             storage_key=_storage_key_for(tid, mapping),
+                                             dataset_keys=dataset_keys,
                                              db_path=db_path))
 
     failed = [c for c in checks if not c["passed"]]
@@ -155,11 +282,263 @@ def stage1_check(ast: dict, db_path: str = "./codeql-db") -> dict:
 # when the value_expr doesn't read an element).
 # ---------------------------------------------------------------------------
 
-def _run_path_exists(*, ast, action_id, target_id, db_path) -> dict:
+def _run_api_call_check(ast: dict, db_path: str) -> dict:
+    """
+    Dispatcher for `P(call(api[, expr]) | A(action))` constraints.
+
+    Bare `call(api)`            → call_reaches (handler-to-call
+                                  reachability).
+    `call(api, r(x) [...])`     → call_with_source (subset check —
+                                  is x's value used in any of the
+                                  call's arguments?).
+    """
+    if not Path(db_path).is_dir():
+        return {
+            "result":  "FLAGGED",
+            "reason":  f"CodeQL database not found at {db_path}.",
+            "checks":  [],
+        }
+
+    action_id = _action_id(ast)
+    api_name  = _api_name(ast)
+    if not action_id:
+        return _skip("call() constraint missing action id.")
+    if not api_name:
+        return _skip("call() constraint missing API name.")
+
+    mapping      = _safe_load_mapping()
+    dataset_keys = _dataset_keys_substitution(action_id, mapping)
+    expects_zero = _expects_absence(ast)
+
+    # If the CallEvent carries a value_expr whose source we can name,
+    # route to call_with_source — subset check that the named source
+    # actually flows into one of the call's arguments. Otherwise fall
+    # back to the bare reachability check.
+    source_ids = _api_call_source_elements(ast)
+    if source_ids:
+        return _run_call_with_source(
+            ast=ast, action_id=action_id, api_name=api_name,
+            source_ids=source_ids, dataset_keys=dataset_keys,
+            expects_zero=expects_zero, db_path=db_path)
+
+    rows, query_text = _run_template(
+        "call_reaches.ql",
+        db_path=db_path,
+        action_id=action_id,
+        api_name=api_name,
+        dataset_keys=dataset_keys)
+
+    if expects_zero:
+        passed = len(rows) == 0
+        reason = (None if passed
+                  else f"handler({action_id}) DOES reach call({api_name}), "
+                       f"but the constraint says it never should")
+    else:
+        passed = len(rows) > 0
+        reason = (None if passed
+                  else f"no code path from handler({action_id}) to "
+                       f"call({api_name})")
+
+    check = {
+        "name":     "call_reaches",
+        "action":   action_id,
+        "target":   api_name,
+        "passed":   passed,
+        "evidence": rows,
+        "reason":   reason,
+        "query":    query_text,
+    }
+    return {
+        "result":  "PASSED" if passed else "FLAGGED",
+        "reason":  None if passed else reason,
+        "checks":  [check],
+    }
+
+
+def _run_call_with_source(*, ast, action_id, api_name, source_ids,
+                          dataset_keys, expects_zero, db_path) -> dict:
+    """
+    For each named source id, run call_with_source.ql and aggregate.
+    Multiple sources are checked independently — `call(api, r(x) + r(y))`
+    requires BOTH x and y to flow into the call (each must produce
+    at least one row).
+    """
+    checks: list[dict] = []
+    all_passed = True
+
+    for src_id in source_ids:
+        rows, query_text = _run_template(
+            "call_with_source.ql",
+            db_path=db_path,
+            action_id=action_id,
+            api_name=api_name,
+            source_id=src_id,
+            dataset_keys=dataset_keys)
+
+        if expects_zero:
+            passed = len(rows) == 0
+            reason = (None if passed
+                      else f"r({src_id}) DOES flow into call({api_name}) "
+                           f"inside handler({action_id}), but the "
+                           f"constraint says it never should")
+        else:
+            passed = len(rows) > 0
+            reason = (None if passed
+                      else f"no taint flow from r({src_id}) to any "
+                           f"argument of call({api_name}) reachable from "
+                           f"handler({action_id})")
+
+        checks.append({
+            "name":     "call_with_source",
+            "action":   action_id,
+            "target":   api_name,
+            "passed":   passed,
+            "evidence": rows,
+            "reason":   reason,
+            "query":    query_text,
+        })
+        if not passed:
+            all_passed = False
+
+    if all_passed:
+        return {"result": "PASSED", "reason": None, "checks": checks}
+    summary = "; ".join(c["reason"] for c in checks if not c["passed"])
+    return {"result": "FLAGGED", "reason": summary, "checks": checks}
+
+
+def _api_call_source_elements(ast: dict) -> list[str]:
+    """Element ids read inside the CallEvent's value_expr (if any)."""
+    event = ast.get("event") or {}
+    if event.get("type") != "CallEvent":
+        return []
+    ve = event.get("params")
+    if not ve:
+        return []
+    out: list[str] = []
+    _collect_expr_reads(ve, out)
+    seen, unique = set(), []
+    for e in out:
+        if e and e not in seen and e != "api_result":
+            seen.add(e)
+            unique.append(e)
+    return unique
+
+
+def _collect_expr_reads(node: Any, out: list[str]) -> None:
+    if isinstance(node, dict):
+        if node.get("type") == "ReadExpr" and isinstance(node.get("element"), str):
+            out.append(node["element"])
+        for v in node.values():
+            _collect_expr_reads(v, out)
+    elif isinstance(node, list):
+        for item in node:
+            _collect_expr_reads(item, out)
+
+
+def _api_name(ast: dict) -> str | None:
+    """Extract the api name from the first CallEvent in the event side."""
+    return _first_api_in(ast.get("event"))
+
+
+def _first_api_in(node: Any) -> str | None:
+    if isinstance(node, dict):
+        if node.get("type") == "CallEvent" and isinstance(node.get("api"), str):
+            return node["api"]
+        for v in node.values():
+            found = _first_api_in(v)
+            if found:
+                return found
+    elif isinstance(node, list):
+        for item in node:
+            found = _first_api_in(item)
+            if found:
+                return found
+    return None
+
+
+def _run_persist_check(ast: dict, db_path: str) -> dict:
+    """
+    Run the two-part persist check for `persist(target) | A(action)`:
+
+      Save side    — path_exists from action's handler reaches a write
+                     to the named storage entry. Reuses the existing
+                     path_exists primitive.
+      Restore side — at least one page-load handler reads the same
+                     storage key. Uses the new page_load_restores
+                     primitive.
+
+    PASS iff both halves pass. The result reason makes clear which half
+    failed so the constraint author knows whether to add the save call
+    in their handler or wire up a page-load restore listener.
+    """
+    if not Path(db_path).is_dir():
+        return {
+            "result":  "FLAGGED",
+            "reason":  f"CodeQL database not found at {db_path}.",
+            "checks":  [],
+        }
+
+    action_id = _action_id(ast)
+    targets   = _target_ids(ast)
+    if not action_id or not targets:
+        return _skip("persist constraint missing action or target id.")
+    target_id = targets[0]
+
+    mapping     = _safe_load_mapping()
+    storage_key = _storage_key_for(target_id, mapping)
+    if not storage_key:
+        return {
+            "result":  "FLAGGED",
+            "reason":  (f"persist({target_id}): no storage entry named "
+                        f"'{target_id}' found in the mapping (run Scan IDs "
+                        f"and confirm the app calls "
+                        f"localStorage.setItem(...) with a recognisable key)."),
+            "checks":  [],
+        }
+
+    dataset_keys = _dataset_keys_substitution(action_id, mapping)
+
+    save_check = _run_path_exists(
+        ast=ast, action_id=action_id, target_id=target_id,
+        storage_key=storage_key, dataset_keys=dataset_keys, db_path=db_path)
+    save_check["name"] = "persist_save"
+
+    restore_rows, restore_query = _run_template(
+        "page_load_restores.ql",
+        db_path=db_path,
+        storage_key=storage_key)
+    restore_passed = len(restore_rows) > 0
+    restore_check = {
+        "name":     "persist_restore",
+        "action":   "page-load",
+        "target":   target_id,
+        "passed":   restore_passed,
+        "evidence": restore_rows,
+        "reason":   None if restore_passed
+                    else (f"no page-load handler reads storage key "
+                          f"'{storage_key}' (need window.addEventListener"
+                          f"('load'/'DOMContentLoaded') or window.onload "
+                          f"that calls localStorage.getItem('{storage_key}'))"),
+        "query":    restore_query,
+    }
+    checks = [save_check, restore_check]
+    failed = [c for c in checks if not c["passed"]]
+    if failed:
+        return {
+            "result":  "FLAGGED",
+            "reason":  "; ".join(c["reason"] for c in failed),
+            "checks":  checks,
+        }
+    return {"result": "PASSED", "reason": None, "checks": checks}
+
+
+def _run_path_exists(*, ast, action_id, target_id, storage_key, dataset_keys, db_path) -> dict:
     rows, query_text = _run_template("path_exists.ql",
                                      db_path=db_path,
                                      action_id=action_id,
-                                     target_id=target_id)
+                                     target_id=target_id,
+                                     storage_key=storage_key,
+                                     dataset_keys=dataset_keys)
     # Row 4: P(w(ej) | A(ei)) = 0 — "A taken, C should NOT update". Same
     # query, inverted verdict: a path existing is now a *violation*.
     if _expects_absence(ast):
@@ -188,7 +567,7 @@ def _run_path_exists(*, ast, action_id, target_id, db_path) -> dict:
     }
 
 
-def _run_literal_value(*, ast, action_id, target_id, db_path) -> dict | None:
+def _run_literal_value(*, ast, action_id, target_id, storage_key, dataset_keys, db_path) -> dict | None:
     """
     Row C — P(w(ej, k) | A(ei)) = 1. Applies only when the value_expr is a
     literal. Verifies a write to the target (reachable from the action's
@@ -201,6 +580,8 @@ def _run_literal_value(*, ast, action_id, target_id, db_path) -> dict | None:
                                      db_path=db_path,
                                      action_id=action_id,
                                      target_id=target_id,
+                                     storage_key=storage_key,
+                                     dataset_keys=dataset_keys,
                                      literal=_ql_escape(str(lit)))
     passed = len(rows) > 0
     return {
@@ -215,7 +596,7 @@ def _run_literal_value(*, ast, action_id, target_id, db_path) -> dict | None:
     }
 
 
-def _run_source_set(*, ast, action_id, target_id, db_path) -> dict | None:
+def _run_source_set(*, ast, action_id, target_id, storage_key, dataset_keys, db_path) -> dict | None:
     """
     Rows 2 / 3 / D — verify the written value derives from EXACTLY the set
     of elements the value_expr names. Applies only when the value_expr
@@ -225,13 +606,44 @@ def _run_source_set(*, ast, action_id, target_id, db_path) -> dict | None:
       - every expected element must flow in (the value uses what it claims)
       - no unexpected element may flow in (exclusivity / Row 3)
     """
-    expected = set(_value_read_elements(ast, target_id))
-    if not expected:
-        return None
+    # Two ways the constraint can specify sources:
+    #   1. Explicit set form  — w(target, sources={r(a), r(b)})
+    #      Uses set-equality semantics. Empty set is meaningful
+    #      ("no element sources flow in"), so we don't self-skip.
+    #   2. Arithmetic value_expr — w(target, r(a) + r(b))
+    #      Extracts every ReadExpr's element from the expression tree.
+    #      Self-skips if no elements are referenced.
+    explicit = _explicit_sources_for(ast, target_id)
+    if explicit is not None:
+        expected = set(explicit)
+        explicit_form = True
+    else:
+        expected = set(_value_read_elements(ast, target_id))
+        if not expected:
+            return None
+        explicit_form = False
     rows, query_text = _run_template("all_sources_to_sink.ql",
                                      db_path=db_path,
-                                     target_id=target_id)
-    actual  = {r.get("source_id") for r in rows if r.get("source_id")}
+                                     action_id=action_id,
+                                     target_id=target_id,
+                                     storage_key=storage_key,
+                                     dataset_keys=dataset_keys)
+    # Storage reads return the raw key (e.g. "album"); translate back to
+    # the storage-entry name (e.g. "albumStorage") so it compares against
+    # the constraint's `r(albumStorage)` source spec.
+    mapping = _safe_load_mapping()
+    storage_entries = (mapping.get("storage") or {})
+    key_to_entry = {
+        (v or {}).get("key"): k
+        for k, v in storage_entries.items()
+        if isinstance((v or {}).get("key"), str)
+    }
+    actual = set()
+    for r in rows:
+        sid = r.get("source_id")
+        if not sid:
+            continue
+        actual.add(key_to_entry.get(sid, sid))
     missing = sorted(expected - actual)
     extra   = sorted(actual - expected)
     passed  = not missing and not extra
@@ -251,7 +663,7 @@ def _run_source_set(*, ast, action_id, target_id, db_path) -> dict | None:
     }
 
 
-def _run_api_result_taint(*, ast, action_id, target_id, db_path) -> dict | None:
+def _run_api_result_taint(*, ast, action_id, target_id, storage_key, dataset_keys, db_path) -> dict | None:
     """
     Verify the value written to the target taint-flows from an API
     response parse (.json() / .text()). Self-skips unless the
@@ -262,7 +674,9 @@ def _run_api_result_taint(*, ast, action_id, target_id, db_path) -> dict | None:
     rows, query_text = _run_template("api_result_taint.ql",
                                      db_path=db_path,
                                      action_id=action_id,
-                                     target_id=target_id)
+                                     target_id=target_id,
+                                     storage_key=storage_key,
+                                     dataset_keys=dataset_keys)
     passed = len(rows) > 0
     return {
         "name":     "api_result_taint",
@@ -277,7 +691,7 @@ def _run_api_result_taint(*, ast, action_id, target_id, db_path) -> dict | None:
     }
 
 
-def _run_self_increment(*, ast, action_id, target_id, db_path) -> dict | None:
+def _run_self_increment(*, ast, action_id, target_id, storage_key, dataset_keys, db_path) -> dict | None:
     """
     Row A — P(w(ej, r(ej) + c) | A(ei)) = 1. Applies only when the
     value_expr is an IncrementExpr. Verifies the write's expression adds
@@ -289,7 +703,9 @@ def _run_self_increment(*, ast, action_id, target_id, db_path) -> dict | None:
     rows, query_text = _run_template("self_increment.ql",
                                      db_path=db_path,
                                      action_id=action_id,
-                                     target_id=target_id)
+                                     target_id=target_id,
+                                     storage_key=storage_key,
+                                     dataset_keys=dataset_keys)
     passed = len(rows) > 0
     return {
         "name":     "self_increment",
@@ -303,7 +719,7 @@ def _run_self_increment(*, ast, action_id, target_id, db_path) -> dict | None:
     }
 
 
-def _run_all_paths_write(*, ast, action_id, target_id, db_path) -> dict | None:
+def _run_all_paths_write(*, ast, action_id, target_id, storage_key, dataset_keys, db_path) -> dict | None:
     """
     Universal check — every code path through the handler reaches a
     write to the target. Self-skips in two cases:
@@ -323,7 +739,9 @@ def _run_all_paths_write(*, ast, action_id, target_id, db_path) -> dict | None:
     rows, query_text = _run_template("all_paths_write.ql",
                                      db_path=db_path,
                                      action_id=action_id,
-                                     target_id=target_id)
+                                     target_id=target_id,
+                                     storage_key=storage_key,
+                                     dataset_keys=dataset_keys)
     passed = len(rows) == 0
     return {
         "name":     "all_paths_write",
@@ -338,7 +756,7 @@ def _run_all_paths_write(*, ast, action_id, target_id, db_path) -> dict | None:
     }
 
 
-def _run_no_other_handlers(*, ast, action_id, target_id, db_path) -> dict:
+def _run_no_other_handlers(*, ast, action_id, target_id, storage_key, dataset_keys, db_path) -> dict:
     """
     Run other_handlers_reach. PASS iff the result set is empty — i.e. no
     handler other than action_id's reaches a write on the target.
@@ -346,7 +764,9 @@ def _run_no_other_handlers(*, ast, action_id, target_id, db_path) -> dict:
     rows, query_text = _run_template("other_handlers_reach.ql",
                                      db_path=db_path,
                                      action_id=action_id,
-                                     target_id=target_id)
+                                     target_id=target_id,
+                                     storage_key=storage_key,
+                                     dataset_keys=dataset_keys)
     offenders = sorted({r.get("other_handler_id") for r in rows if r.get("other_handler_id")})
     passed = len(rows) == 0
     return {
@@ -361,7 +781,7 @@ def _run_no_other_handlers(*, ast, action_id, target_id, db_path) -> dict:
     }
 
 
-def _run_guarded_write(*, ast, action_id, target_id, db_path) -> dict:
+def _run_guarded_write(*, ast, action_id, target_id, storage_key, dataset_keys, db_path) -> dict:
     """
     Run guarded_write. PASS iff at least one guarded write was found —
     the write to the target is enclosed by an `if` reading the element
@@ -374,6 +794,8 @@ def _run_guarded_write(*, ast, action_id, target_id, db_path) -> dict:
                                      db_path=db_path,
                                      action_id=action_id,
                                      target_id=target_id,
+                                     storage_key=storage_key,
+                                     dataset_keys=dataset_keys,
                                      guard_id=guard_id)
     passed = len(rows) > 0
     return {
@@ -490,6 +912,33 @@ def _value_read_elements(ast: dict, target_id: str) -> list[str]:
     return unique
 
 
+def _explicit_sources_for(ast: dict, target_id: str) -> list[str] | None:
+    """
+    Element ids from the explicit `sources={...}` form on the target's
+    WriteEvent, if present. Returns:
+        - list of element names (possibly empty) when the WriteEvent
+          uses the explicit set form
+        - None when the WriteEvent has no explicit sources field (the
+          caller falls back to value_expr extraction)
+
+    The `api_result` sentinel is filtered out — element-source checks
+    only verify DOM/storage flows.
+    """
+    for write in _all_writes_for(ast.get("event"), target_id):
+        sources = write.get("sources")
+        if sources is None:
+            continue
+        names: list[str] = []
+        for item in sources:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("element")
+            if isinstance(name, str) and name != "api_result":
+                names.append(name)
+        return names
+    return None
+
+
 def _collect_value_elements(node: Any, out: list[str]) -> None:
     if isinstance(node, dict):
         if (node.get("type") in ("ReadExpr", "IncrementExpr", "LenExpr")
@@ -559,6 +1008,11 @@ def _target_ids(ast: dict) -> list[str]:
 def _collect_writes(node: Any, out: list[str]) -> None:
     if isinstance(node, dict):
         if node.get("type") == "WriteEvent" and isinstance(node.get("element"), str):
+            out.append(node["element"])
+        # `persist(target)` desugars to a save-side write — the analyzer
+        # treats the persist target as a write target so action/target
+        # extraction works uniformly.
+        if node.get("type") == "PersistEvent" and isinstance(node.get("element"), str):
             out.append(node["element"])
         for v in node.values():
             _collect_writes(v, out)

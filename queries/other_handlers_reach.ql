@@ -34,8 +34,13 @@ predicate isElementRef(string id, Expr ref) {
   )
 }
 
-/** Function registered as a handler on the element with id *id*. */
-predicate registeredHandler(string id, Function fn) {
+/** Function registered as a handler on the element with id *id* (or
+ *  bound via class selector `.cls`). See path_exists.ql for details. */
+// Id-based — enumerable; used by anyRegisteredHandler to walk every
+// concrete-id handler in the codebase. Class-based selectors are
+// intentionally omitted from "other handlers reach" — they're not
+// addressable by an id that would compare against __ACTION_ID__.
+predicate registeredHandlerById(string id, Function fn) {
   exists(MethodCallExpr addEvt |
     addEvt.getMethodName() = "addEventListener" and
     isElementRef(id, addEvt.getReceiver()) and
@@ -51,9 +56,68 @@ predicate registeredHandler(string id, Function fn) {
   )
 }
 
+/** Pattern A — handler bound by querySelectorAll(...).forEach(el =>
+ *  el.addEventListener(...)). */
+predicate registeredViaForEach(string cls, Function fn) {
+  exists(MethodCallExpr querySel, MethodCallExpr forEach,
+         Function cb, MethodCallExpr addEvt |
+    querySel.getMethodName() = "querySelectorAll" and
+    querySel.getArgument(0).getStringValue() = "." + cls and
+    forEach.getMethodName() = "forEach" and
+    forEach.getReceiver() = querySel and
+    cb = forEach.getArgument(0) and
+    addEvt.getMethodName() = "addEventListener" and
+    addEvt.getEnclosingFunction() = cb and
+    (
+      fn = addEvt.getArgument(1)
+      or
+      exists(VarRef ref |
+        ref = addEvt.getArgument(1) and
+        fn.getName() = ref.getName() and
+        fn.getFile() = addEvt.getFile()
+      )
+    )
+  )
+}
+
 /** Any handler registered on any element id we can resolve. */
 predicate anyRegisteredHandler(string id, Function fn) {
-  registeredHandler(id, fn)
+  registeredHandlerById(id, fn)
+  or
+  (
+    id = "page-load" and
+    (
+      exists(MethodCallExpr addEvt |
+        addEvt.getMethodName() = "addEventListener" and
+        addEvt.getReceiver().(VarRef).getName() = ["window", "document"] and
+        addEvt.getArgument(0).getStringValue() = ["load", "DOMContentLoaded"] and
+        (
+          fn = addEvt.getArgument(1)
+          or
+          exists(VarRef ref |
+            ref = addEvt.getArgument(1) and
+            fn.getName() = ref.getName() and
+            fn.getFile() = addEvt.getFile()
+          )
+        )
+      )
+      or
+      exists(AssignExpr assign, PropAccess lhs |
+        assign.getLhs() = lhs and
+        lhs.getPropertyName() = "onload" and
+        lhs.getBase().(VarRef).getName() = "window" and
+        (
+          fn = assign.getRhs()
+          or
+          exists(VarRef ref |
+            ref = assign.getRhs() and
+            fn.getName() = ref.getName() and
+            fn.getFile() = assign.getFile()
+          )
+        )
+      )
+    )
+  )
 }
 
 predicate writesElement(string id, AssignExpr write) {
@@ -61,6 +125,31 @@ predicate writesElement(string id, AssignExpr write) {
     lhs = write.getLhs() and
     isElementRef(id, lhs.getBase())
   )
+}
+
+/** innerHTML assignment whose RHS embeds id="X" — treats the child
+ *  element as having been written by that assignment. */
+bindingset[id]
+predicate isCreatedInInnerHTML(string id, AssignExpr write) {
+  exists(PropAccess lhs |
+    lhs = write.getLhs() and
+    lhs.getPropertyName() = ["innerHTML", "outerHTML"]
+  ) and
+  write.getRhs().toString().regexpMatch(
+    ".*\\bid\\s*=\\s*[\"']" + id + "[\"'].*"
+  )
+}
+
+/** DOM-mutation method calls (appendChild, replaceChildren, etc.). */
+predicate writesElementVia(string id, MethodCallExpr call) {
+  call.getMethodName() = [
+    "appendChild", "append", "prepend",
+    "insertBefore", "replaceChild", "replaceChildren",
+    "insertAdjacentHTML", "insertAdjacentElement",
+    "removeChild", "remove",
+    "setAttribute"
+  ] and
+  isElementRef(id, call.getReceiver())
 }
 
 predicate callsDirect(Function caller, Function callee) {
@@ -78,14 +167,29 @@ predicate reaches(Function caller, Function callee) {
   exists(Function mid | callsDirect(caller, mid) and reaches(mid, callee))
 }
 
-from string other_id, Function handler, AssignExpr write, Function writeFn
+from string other_id, Function handler, Expr writeSite, Function writeFn
 where
   anyRegisteredHandler(other_id, handler) and
   other_id != "__ACTION_ID__" and
-  writesElement("__TARGET_ID__", write) and
-  writeFn = write.getEnclosingFunction() and
+  (
+    exists(AssignExpr w |
+      writesElement("__TARGET_ID__", w) and
+      writeSite = w
+    )
+    or
+    exists(MethodCallExpr c |
+      writesElementVia("__TARGET_ID__", c) and
+      writeSite = c
+    )
+    or
+    exists(AssignExpr w |
+      isCreatedInInnerHTML("__TARGET_ID__", w) and
+      writeSite = w
+    )
+  ) and
+  writeFn = writeSite.getEnclosingFunction() and
   reaches(handler, writeFn)
 select
   other_id                                      as other_handler_id,
-  write.getFile().getRelativePath()             as file,
-  write.getLocation().getStartLine()            as line
+  writeSite.getFile().getRelativePath()         as file,
+  writeSite.getLocation().getStartLine()        as line

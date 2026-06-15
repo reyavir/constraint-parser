@@ -34,11 +34,20 @@ def classify(ast: dict) -> ConstraintType:
     if event.get("type") == "CallEvent":
         return ConstraintType.API_CALL
 
+    if event.get("type") == "PersistEvent":
+        return ConstraintType.PERSIST
+
     if condition.get("negated"):
         return ConstraintType.COUNTERFACTUAL
 
     if event.get("type") == "WriteEvent" and event.get("value_expr") is not None:
         return _classify_value_expr(event["value_expr"])
+
+    # Explicit-set form `w(target, sources={...})` — value derives from
+    # exactly the listed element reads. Routes to source_set primitive
+    # like the arithmetic VALUE_WITH_DATAFLOW form.
+    if event.get("type") == "WriteEvent" and event.get("sources") is not None:
+        return ConstraintType.VALUE_WITH_DATAFLOW
 
     if event.get("type") == "Guard":
         return ConstraintType.GUARD

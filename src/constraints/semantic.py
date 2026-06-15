@@ -28,6 +28,10 @@ from ..mapping.pipeline import load_mapping, MAPPING_FILE
 # Element identifiers that are language sentinels, not real UI elements.
 _BUILTIN_ELEMENT_NAMES = {"api_result"}
 
+# Reserved synthetic action ids: not real DOM elements, but valid in A(...).
+# Used for lifecycle events that don't have a clickable surface.
+_SYNTHETIC_ACTIONS = {"page-load"}
+
 
 @dataclass
 class SemanticIssue:
@@ -106,12 +110,13 @@ def _check_condition_side(condition: Any, issues: list[SemanticIssue]) -> None:
 
 def _check_event_side(event: Any, issues: list[SemanticIssue]) -> None:
     """Rules 2 and 8."""
-    allowed = {"WriteEvent", "CallEvent", "CompoundEvent", "Guard"}
+    allowed = {"WriteEvent", "CallEvent", "CompoundEvent", "Guard", "PersistEvent"}
     if not _contains_any_type(event, allowed):
         issues.append(SemanticIssue(
             "E002",
             "Left side of '|' (event) must contain a write event w(...), "
-            "a system action call(...), a compound event, or a guard."))
+            "a system action call(...), a compound event, a guard, "
+            "or a persistence assertion persist(...)."))
     if _contains_any_type(event, {"Action"}):
         issues.append(SemanticIssue(
             "E008",
@@ -135,23 +140,48 @@ def _contains_any_type(node: Any, type_set: set[str]) -> bool:
 # ---------------------------------------------------------------------------
 
 def _check_identifiers(ast: dict, mapping: dict, issues: list[SemanticIssue]) -> None:
-    elements: dict = mapping.get("elements", {})
-    apis: dict     = mapping.get("apis", {})
+    elements:  dict = mapping.get("elements",  {}) or {}
+    storage:   dict = mapping.get("storage",   {}) or {}
+    apis:      dict = mapping.get("apis",      {}) or {}
+    selectors: dict = mapping.get("selectors", {}) or {}
+
+    # Identifiers that w(...) and r(...) accept besides DOM elements:
+    # storage entries (localStorage / sessionStorage) and API endpoints.
+    # An "element-like" identifier is anything that can be written or read
+    # — covers UI elements, storage entries, and API names.
+    element_like: set[str] = (
+        set(elements.keys()) | set(storage.keys()) | set(apis.keys())
+    )
 
     for node in _walk_dicts(ast):
         ntype = node.get("type")
 
         if ntype == "Action":
-            _check_action_element(node, elements, issues)
+            _check_action_element(node, elements, selectors, issues)
 
         elif ntype == "WriteEvent":
             name = node.get("element")
             if not isinstance(name, str):
                 continue
-            if name in _BUILTIN_ELEMENT_NAMES or name not in elements:
+            if name in _BUILTIN_ELEMENT_NAMES or name not in element_like:
                 issues.append(SemanticIssue(
                     "E004",
-                    f"Element '{name}' in w({name}) is not in the mapping."))
+                    f"'{name}' in w({name}) is not a known UI element, "
+                    f"storage entry, or API in the mapping."))
+
+        elif ntype == "PersistEvent":
+            name = node.get("element")
+            if not isinstance(name, str):
+                continue
+            # persist(target) requires the target to be a storage entry
+            # (localStorage / sessionStorage key). DOM elements and APIs
+            # don't make sense as persistence targets.
+            if name not in storage:
+                issues.append(SemanticIssue(
+                    "E006",
+                    f"'{name}' in persist({name}) is not a known storage "
+                    f"entry in the mapping. persist(...) requires a target "
+                    f"that the app calls localStorage.setItem(...) with."))
 
         elif ntype in ("ReadExpr", "LenExpr", "IncrementExpr"):
             name = node.get("element")
@@ -159,10 +189,11 @@ def _check_identifiers(ast: dict, mapping: dict, issues: list[SemanticIssue]) ->
                 continue
             if name in _BUILTIN_ELEMENT_NAMES:
                 continue  # api_result is a language sentinel, not a UI element
-            if name not in elements:
+            if name not in element_like:
                 issues.append(SemanticIssue(
                     "E005",
-                    f"Element '{name}' in r({name}) is not in the mapping."))
+                    f"'{name}' in r({name}) is not a known UI element, "
+                    f"storage entry, or API in the mapping."))
 
         elif ntype in ("CallEvent", "StatusExpr"):
             # API auto-discovery is not in the scan_ids pipeline yet, so we
@@ -177,11 +208,38 @@ def _check_identifiers(ast: dict, mapping: dict, issues: list[SemanticIssue]) ->
                     f"API '{api_name}' is not in the extracted API mapping."))
 
 
-def _check_action_element(node: dict, elements: dict, issues: list[SemanticIssue]) -> None:
-    """Rule 3: ei in A(ei) must exist AND have kind 'action'."""
+def _check_action_element(node: dict, elements: dict,
+                          selectors: dict,
+                          issues: list[SemanticIssue]) -> None:
+    """Rule 3: ei in A(ei) must exist AND have kind 'action'.
+
+    `ei` is either a DOM element id (looked up in mapping.elements) or
+    a CSS class selector `.cls` (looked up in mapping.selectors, leading
+    dot stripped). Selectors are implicitly action-kind, so the kind
+    check is skipped for them.
+    """
     name = node.get("element")
     if not isinstance(name, str):
         return
+
+    # Reserved synthetic actions (lifecycle events). Not in the mapping
+    # by design — they are not visible DOM elements but are still valid
+    # in A(...). Extend this set when adding new lifecycle keywords.
+    if name in _SYNTHETIC_ACTIONS:
+        return
+
+    # Class selector path: `.classname` → look up `classname` in selectors.
+    if name.startswith("."):
+        cls = name[1:]
+        if not cls or cls not in selectors:
+            issues.append(SemanticIssue(
+                "E003",
+                f"Class selector '{name}' in A({name}) is not in the mapping. "
+                f"Run scan_ids — did you wire up a `querySelectorAll('.{cls}')` "
+                f"or similar pattern in your source?"))
+        return
+
+    # DOM element path.
     if name in _BUILTIN_ELEMENT_NAMES or name not in elements:
         issues.append(SemanticIssue(
             "E003",

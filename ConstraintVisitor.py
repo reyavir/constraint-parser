@@ -1,4 +1,4 @@
-# Generated from /Users/reyavir/Documents/constraint-verification/Constraint.g4 by ANTLR 4.13.2
+# Generated from Constraint.g4 by ANTLR 4.13.2
 from antlr4 import *
 if "." in __name__:
     from .ConstraintParser import ConstraintParser
@@ -54,6 +54,16 @@ class ConstraintVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by ConstraintParser#source_set.
+    def visitSource_set(self, ctx:ConstraintParser.Source_setContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ConstraintParser#source_item.
+    def visitSource_item(self, ctx:ConstraintParser.Source_itemContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by ConstraintParser#user_action.
     def visitUser_action(self, ctx:ConstraintParser.User_actionContext):
         return self.visitChildren(ctx)
@@ -61,6 +71,11 @@ class ConstraintVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by ConstraintParser#system_event.
     def visitSystem_event(self, ctx:ConstraintParser.System_eventContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ConstraintParser#persist_event.
+    def visitPersist_event(self, ctx:ConstraintParser.Persist_eventContext):
         return self.visitChildren(ctx)
 
 

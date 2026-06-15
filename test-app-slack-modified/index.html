@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Slacky — micro-workspace</title>
+<style>
+  :root {
+    --purple-dark: #3f0e40;
+    --aubergine:   #350d36;
+    --side-text:   #d9d0db;
+    --side-hover:  rgba(255,255,255,0.08);
+    --green:       #007a5a;
+    --red:         #e01e5a;
+    --yellow:      #ecb22e;
+    --border:      #e1e1e4;
+    --bg:          #f8f8fa;
+    --muted:       #616061;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    margin: 0; color: #1d1c1d; background: var(--bg); min-height: 100vh;
+  }
+
+  header {
+    background: var(--aubergine); color: white;
+    padding: 0.45rem 1rem; display: flex; align-items: center; gap: 1rem;
+  }
+  header h1 { margin: 0; font-size: 1.05rem; }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    background: rgba(255,255,255,0.12); padding: 0.15rem 0.6rem;
+    border-radius: 12px; font-size: 0.8rem;
+  }
+  .status-pill::before {
+    content: ''; width: 8px; height: 8px;
+    background: #2eb67d; border-radius: 50%;
+  }
+  .top-badges { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+  .pill {
+    background: rgba(255,255,255,0.12); color: white;
+    padding: 0.15rem 0.55rem; border-radius: 12px; font-size: 0.8rem;
+  }
+  header button {
+    background: rgba(255,255,255,0.15); color: white;
+    border: 1px solid rgba(255,255,255,0.25); border-radius: 4px;
+    padding: 0.22rem 0.55rem; cursor: pointer; font-size: 0.78rem;
+  }
+  header button:hover { background: rgba(255,255,255,0.25); }
+
+  main { display: grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - 46px); }
+
+  .sidebar {
+    background: var(--purple-dark); color: var(--side-text); padding: 0.8rem 0;
+  }
+  .ws-meta { padding: 0 1rem 0.7rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .me-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
+  .avatar {
+    width: 26px; height: 26px; border-radius: 4px;
+    background: linear-gradient(135deg, #ecb22e, #e01e5a);
+    color: white; font-weight: 700; font-size: 0.78rem;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .me-row strong { color: white; }
+
+  .search-box { padding: 0.6rem 1rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .search-box input {
+    width: 100%; padding: 0.32rem 0.5rem; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1);
+    color: white; font-size: 0.85rem;
+  }
+  .search-box input::placeholder { color: rgba(255,255,255,0.5); }
+  .search-meta { color: rgba(255,255,255,0.55); font-size: 0.72rem; padding-top: 0.25rem; }
+
+  .side-h3 {
+    margin: 0; padding: 0.7rem 1rem 0.3rem;
+    font-size: 0.78rem; font-weight: 700; color: rgba(255,255,255,0.7);
+  }
+  .channel-row {
+    display: flex; align-items: center; padding: 0.25rem 1rem; gap: 0.4rem;
+  }
+  .channel-row:hover { background: var(--side-hover); }
+  .channel-row > button.ch-btn {
+    background: none; border: none; color: var(--side-text);
+    cursor: pointer; text-align: left; padding: 0;
+    font-size: 0.92rem; flex: 1;
+  }
+  .ch-btn:hover { color: white; }
+  .hash { color: rgba(255,255,255,0.6); margin-right: 0.2rem; }
+  .unread {
+    background: var(--red); color: white; border-radius: 9px;
+    padding: 0.02rem 0.4rem; font-size: 0.7rem; font-weight: 700;
+    min-width: 18px; text-align: center;
+  }
+  .mark-btn {
+    background: rgba(255,255,255,0.1); border: none; color: var(--side-text);
+    border-radius: 3px; padding: 0.08rem 0.32rem; font-size: 0.7rem; cursor: pointer;
+  }
+  .mark-btn:hover { background: rgba(255,255,255,0.2); color: white; }
+
+  .roster-block { padding: 0.4rem 1rem 0.8rem; }
+  .roster-block button {
+    background: rgba(255,255,255,0.1); color: var(--side-text);
+    border: 1px solid rgba(255,255,255,0.18); border-radius: 4px;
+    padding: 0.22rem 0.55rem; cursor: pointer; font-size: 0.78rem;
+  }
+  .roster-block button:hover { background: rgba(255,255,255,0.18); color: white; }
+  .roster-display { color: var(--side-text); font-size: 0.85rem; padding-top: 0.4rem; }
+
+  .main-pane { padding: 1rem 1.5rem; background: white; border-left: 1px solid var(--border); }
+  .channel-header { padding-bottom: 0.7rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+  .channel-header h2 { margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.25rem; }
+  .channel-header .hash-big { color: var(--muted); }
+  .topic-line { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+  .topic-edit { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+  .topic-edit input { flex: 1; padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 4px; }
+
+  section { margin-bottom: 1.1rem; padding-bottom: 1.1rem; border-bottom: 1px solid #eee; }
+  section:last-child { border-bottom: none; }
+  section h3 {
+    margin: 0 0 0.5rem; font-size: 0.78rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;
+  }
+
+  button {
+    padding: 0.32rem 0.7rem; border: 1px solid var(--border);
+    border-radius: 4px; background: white; cursor: pointer; font-size: 0.85rem;
+  }
+  button:hover { background: #f4f4f6; }
+  .primary { background: var(--green); color: white; border: 1px solid var(--green); }
+  .primary:hover { background: #006c4f; }
+
+  textarea, input[type="text"] {
+    padding: 0.45rem; border: 1px solid var(--border); border-radius: 4px;
+    font-family: inherit; font-size: 0.9rem;
+  }
+  textarea { width: 100%; resize: vertical; }
+  .compose-row { display: flex; gap: 0.55rem; align-items: center; margin-top: 0.5rem; }
+  .sent-count { color: var(--muted); font-size: 0.85rem; margin-left: auto; }
+
+  .reactions { display: flex; gap: 0.5rem; }
+  .reactions button {
+    padding: 0.18rem 0.6rem; border-radius: 999px; background: #f8f8fa;
+    display: inline-flex; align-items: center; gap: 0.3rem;
+  }
+
+  .field-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; }
+  .field-row label { min-width: 110px; color: var(--muted); font-size: 0.85rem; }
+  .field-aside { color: var(--muted); font-size: 0.85rem; }
+
+  .pinned-box {
+    background: #fffbe6; border: 1px solid #f5e6a8; border-radius: 4px;
+    padding: 0.45rem 0.7rem; font-size: 0.88rem;
+  }
+  .stats-box {
+    background: #f0f7ff; border: 1px solid #c7e0ff; border-radius: 4px;
+    padding: 0.4rem 0.65rem; font-size: 0.85rem; display: inline-block;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="workspace-name">Slacky</h1>
+  <span class="status-pill">Status: <span id="current-status">online</span></span>
+  <div class="top-badges">
+    <span class="pill">🔔 <span id="notification-count">3</span></span>
+    <span class="pill">@ <span id="mention-count">2</span></span>
+    <button id="mark-all-read-btn">Mark all read</button>
+    <button id="clear-mentions-btn">Clear mentions</button>
+  </div>
+</header>
+
+<main>
+
+  <aside class="sidebar">
+    <div class="ws-meta">
+      <div class="me-row">
+        <span class="avatar">R</span>
+        <strong id="username-display">reya</strong>
+      </div>
+    </div>
+
+    <div class="search-box">
+      <input id="search-input" type="text" placeholder="Search channels…"/>
+      <div class="search-meta">Filter: <span id="search-status">all</span></div>
+    </div>
+
+    <h3 class="side-h3">Channels</h3>
+    <div class="channel-row">
+      <button class="ch-btn" id="channel-1-btn"><span class="hash">#</span><span id="channel-1-name">general</span></button>
+      <span class="unread"><span id="channel-1-unread-count">4</span></span>
+      <button class="mark-btn" id="mark-channel-1-read-btn">✓</button>
+    </div>
+    <div class="channel-row">
+      <button class="ch-btn" id="channel-2-btn"><span class="hash">#</span><span id="channel-2-name">engineering</span></button>
+      <span class="unread"><span id="channel-2-unread-count">2</span></span>
+      <button class="mark-btn" id="mark-channel-2-read-btn">✓</button>
+    </div>
+    <div class="channel-row">
+      <button class="ch-btn" id="channel-3-btn"><span class="hash">#</span><span id="channel-3-name">random</span></button>
+      <span class="unread"><span id="channel-3-unread-count">0</span></span>
+      <button class="mark-btn" id="mark-channel-3-read-btn">✓</button>
+    </div>
+
+    <h3 class="side-h3">Online</h3>
+    <div class="roster-block">
+      <button id="show-online-btn">Refresh roster</button>
+      <div class="roster-display"><span id="online-roster-display">—</span></div>
+    </div>
+  </aside>
+
+  <div class="main-pane">
+
+    <div class="channel-header">
+      <h2><span class="hash-big">#</span><strong id="active-channel-name">general</strong></h2>
+      <div class="topic-line">Topic: <span id="topic-display">team updates</span></div>
+      <div class="topic-edit">
+        <input id="topic-input" type="text" value="team updates" placeholder="Set channel topic"/>
+        <button id="save-topic-btn">Set topic</button>
+      </div>
+    </div>
+
+    <section>
+      <h3>Compose</h3>
+      <textarea id="compose-input" rows="3" placeholder="Say something…"></textarea>
+      <div class="compose-row">
+        <button id="send-message-btn" class="primary">Send</button>
+        <button id="pin-last-btn">📌 Pin last</button>
+        <span class="sent-count">Sent: <span id="message-count">0</span></span>
+      </div>
+    </section>
+
+    <section>
+      <h3>Pinned</h3>
+      <div class="pinned-box">📌 <span id="pinned-display">No pinned message</span></div>
+    </section>
+
+    <section>
+      <h3>React to last message</h3>
+      <div class="reactions">
+        <button id="react-1-btn">👍 <span id="react-1-count">0</span></button>
+        <button id="react-2-btn">🎉 <span id="react-2-count">0</span></button>
+      </div>
+    </section>
+
+    <section>
+      <h3>Profile</h3>
+      <div class="field-row">
+        <label>Display name:</label>
+        <input id="username-input" type="text" value="reya"/>
+        <button id="save-username-btn">Save</button>
+      </div>
+    </section>
+
+    <section>
+      <h3>Status &amp; settings</h3>
+      <div class="field-row">
+        <label>Status:</label>
+        <input id="status-selector" type="text" list="status-options" value="online"/>
+        <datalist id="status-options">
+          <option value="online"></option>
+          <option value="away"></option>
+          <option value="busy"></option>
+          <option value="dnd"></option>
+          <option value="offline"></option>
+        </datalist>
+        <button id="set-status-btn">Set</button>
+      </div>
+      <div class="field-row">
+        <label>Theme:</label>
+        <input id="theme-input" type="text" value="light"/>
+        <button id="save-settings-btn">Save</button>
+        <span class="field-aside">Current: <span id="theme-display">light</span></span>
+      </div>
+      <div class="field-row">
+        <label>Notifications:</label>
+        <button id="toggle-notifications-btn">Toggle</button>
+        <span class="field-aside"><span id="notifications-enabled">on</span></span>
+      </div>
+    </section>
+
+    <section>
+      <h3>Stats</h3>
+      <div class="field-row">
+        <button id="show-stats-btn">Show stats</button>
+        <span class="stats-box">Total messages sent: <span id="stats-display">0</span></span>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

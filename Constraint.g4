@@ -43,13 +43,35 @@ atom
     : write_event
     | user_action
     | system_event
+    | persist_event
     | guard
     | literal_bool
     ;
 
+// Three write-event forms:
+//   w(target)                            — existence only, no value claim
+//   w(target, expr)                      — value derives from an expression
+//                                          (arithmetic shape, e.g. r(x) + 1)
+//   w(target, sources={r(s1), r(s2)})    — value derives from EXACTLY this
+//                                          set of element reads (set
+//                                          equality — no extras, no
+//                                          missing). Empty set { } means
+//                                          "no element sources" (literal
+//                                          or api-only value).
 write_event
     : 'w(' ui_element ')'
     | 'w(' ui_element ',' expr ')'
+    | 'w(' ui_element ',' 'sources=' source_set ')'
+    ;
+
+source_set
+    : '{' source_item (',' source_item)* '}'
+    | '{' '}'
+    ;
+
+source_item
+    : 'r(' ui_element ')'
+    | 'r(' 'api_result' ')'
     ;
 
 user_action
@@ -59,6 +81,13 @@ user_action
 system_event
     : 'call(' api ')'
     | 'call(' api ',' expr ')'
+    ;
+
+// `persist(storage_target)` — true iff the action handler writes to the
+// named storage AND a page-load handler reads from that same storage.
+// Sugar for the conjunction of save and restore checks.
+persist_event
+    : 'persist(' ui_element ')'
     ;
 
 // ── expressions (for values and guards) ──────────────────────────────────────
@@ -112,7 +141,11 @@ IN    : 'in' ;
 TRUE  : 'true' ;
 FALSE : 'false' ;
 
-IDENTIFIER : [a-zA-Z][a-zA-Z0-9_-]* ;
+// IDENTIFIER also accepts a leading '.' so class selectors like
+// `.wishlist-heart` parse as a single token. Downstream layers
+// (semantic check, dispatcher) treat the leading-dot form as a
+// CSS class selector to bind against dynamic per-instance elements.
+IDENTIFIER : '.'? [a-zA-Z][a-zA-Z0-9_-]* ;
 NUMBER     : [0-9]+ ('.' [0-9]+)? ;
 STRING     : '"' (~["\r\n])* '"' ;
 
