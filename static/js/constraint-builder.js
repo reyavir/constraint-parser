@@ -645,13 +645,13 @@
     const storageRows = state.storage.length === 0
       ? `<div class="__cb_empty">No storage usage detected.</div>`
       : state.storage.map(s => `
-            <div class="__cb_lane_row _disabled"
+            <div class="__cb_lane_row"
                  data-action="pick_storage"
                  data-id="${escapeAttr(s.id)}"
-                 title="Storage constraints aren't supported by the grammar yet — shown for visibility.">
+                 title="${escapeAttr((s.file || '') + ':' + (s.line || ''))}">
               <span class="__cb_lane_icon">💾</span>
-              <span class="__cb_lane_id">${escapeHtml(s.area)}</span>
-              <span class="__cb_lane_path">"${escapeHtml(s.key)}"</span>
+              <span class="__cb_lane_id">${escapeHtml(s.id)}</span>
+              <span class="__cb_lane_path">${escapeHtml(s.area)}["${escapeHtml(s.key)}"]</span>
             </div>`).join('');
 
     return `
@@ -663,7 +663,7 @@
 
       <div class="__cb_section">
         <div class="__cb_section_label">Storage your app uses</div>
-        <p class="__cb_lane_note">Detected only — the constraint grammar doesn't yet model storage events.</p>
+        <p class="__cb_lane_note">Click to add as a target. Renders as <code>w(name)</code> — pick a value source to express <code>w(name, r(input))</code> etc.</p>
         ${storageRows}
       </div>
     `;
@@ -827,9 +827,19 @@
         render();
         break;
       }
-      case 'pick_storage':
-        setStatus('error', 'Storage constraints aren\'t supported by the grammar yet — shown for visibility only.');
+      case 'pick_storage': {
+        const id = target.dataset.id;
+        if (!id) break;
+        if (state.targets.some(t => t.id === id && t.kind === 'storage')) {
+          setStatus('error', `Storage ${id} is already a target.`);
+          break;
+        }
+        const s = state.storage.find(x => x.id === id);
+        const label = s ? `${id} (${s.area}["${s.key}"])` : id;
+        state.targets.push({ id, label, op: 'AND', kind: 'storage' });
+        render();
         break;
+      }
       case 'save':
         saveConstraint();
         break;
@@ -1061,6 +1071,10 @@
     restore();
     render();
     loadMapping();
+    // Re-fetch mapping when the parent flow signals the active app changed
+    // (e.g. after "Build / rebuild DB" in Step 6). Keeps the storage/APIs
+    // lane and the elements dropdown in sync without a manual reload.
+    window.addEventListener("cv:app-changed", () => loadMapping());
   }
 
   if (document.readyState === 'loading') {

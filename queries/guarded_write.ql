@@ -226,25 +226,14 @@ predicate writesElement(string id, AssignExpr write) {
   )
 }
 
-/** innerHTML assignment whose RHS embeds id="X" — treats the child
- *  element as having been written by that assignment. */
-bindingset[id]
-predicate isCreatedInInnerHTML(string id, AssignExpr write) {
-  exists(PropAccess lhs |
-    lhs = write.getLhs() and
-    lhs.getPropertyName() = ["innerHTML", "outerHTML"]
-  ) and
-  write.getRhs().toString().regexpMatch(
-    ".*\\bid\\s*=\\s*[\"']" + id + "[\"'].*"
-  )
-}
-
-/** DOM-mutation method calls (appendChild, replaceChildren, etc.). */
+/** DOM-mutation method calls (appendChild, replaceChildren, etc.).
+ *  Methods that parse HTML strings into new DOM nodes are excluded —
+ *  they cannot operate on a static-HTML app's existing element set. */
 predicate writesElementVia(string id, MethodCallExpr call) {
   call.getMethodName() = [
     "appendChild", "append", "prepend",
     "insertBefore", "replaceChild", "replaceChildren",
-    "insertAdjacentHTML", "insertAdjacentElement",
+    "insertAdjacentElement",
     "removeChild", "remove",
     "setAttribute"
   ] and
@@ -295,11 +284,6 @@ where
     exists(MethodCallExpr c |
       writesElementVia("__TARGET_ID__", c) and
       writeSite = c
-    )
-    or
-    exists(AssignExpr w |
-      isCreatedInInnerHTML("__TARGET_ID__", w) and
-      writeSite = w
     )
     or
     exists(MethodCallExpr c |

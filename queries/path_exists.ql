@@ -249,50 +249,19 @@ predicate writesElement(string id, AssignExpr write) {
 }
 
 /**
- * Holds if *write* is an assignment to a parent element's `innerHTML` /
- * `outerHTML` whose right-hand side embeds the substring `id="X"`. This
- * is how dynamically-rendered children get into the DOM in apps that
- * build HTML in template literals — e.g.
- *   container.innerHTML = `<div id="add-note-msg">…</div>`;
- * The write to the parent's innerHTML is treated as a write to the
- * inner element id, since that assignment is what creates / re-creates
- * the element.
- *
- * Limitations:
- *   - Only fully-static ids (no `${…}` interpolation). Templated ids
- *     are not registered in the mapping by scan_ids, so they don't
- *     reach here either.
- *   - We pattern-match the assignment's RHS text rather than walking
- *     a template-literal AST — false positives if the same id substring
- *     appears in an unrelated context, but in practice id="X" inside
- *     a parent's innerHTML is the common shape.
- */
-bindingset[id]
-predicate isCreatedInInnerHTML(string id, AssignExpr write) {
-  exists(PropAccess lhs |
-    lhs = write.getLhs() and
-    lhs.getPropertyName() = ["innerHTML", "outerHTML"]
-  ) and
-  // Cheap text scan over the RHS expression — matches both string
-  // literals and template literals.
-  write.getRhs().toString().regexpMatch(
-    ".*\\bid\\s*=\\s*[\"']" + id + "[\"'].*"
-  )
-}
-
-/**
  * DOM-mutation method calls that change what the element renders.
- * Treated as writes alongside `el.prop = value` assignments so code
- * using appendChild / replaceChildren / insertAdjacent* style mutation
- * is caught by existence and universality checks. `receiver` is the
- * element being mutated (the parent for appendChild, the element
+ * Treated as writes alongside `el.prop = value` assignments. Methods
+ * that *parse HTML strings* into new DOM nodes (`insertAdjacentHTML`,
+ * and innerHTML-as-creation) are deliberately excluded — they cannot
+ * operate on a static-HTML app's existing element set. `receiver` is
+ * the element being mutated (the parent for appendChild, the element
  * itself for setAttribute / remove).
  */
 predicate writesElementVia(string id, MethodCallExpr call) {
   call.getMethodName() = [
     "appendChild", "append", "prepend",
     "insertBefore", "replaceChild", "replaceChildren",
-    "insertAdjacentHTML", "insertAdjacentElement",
+    "insertAdjacentElement",
     "removeChild", "remove",
     "setAttribute"
   ] and
@@ -348,12 +317,6 @@ where
       writesElementVia("__TARGET_ID__", c) and
       c.getEnclosingFunction() = writeFn and
       writingSite = c
-    )
-    or
-    exists(AssignExpr w |
-      isCreatedInInnerHTML("__TARGET_ID__", w) and
-      w.getEnclosingFunction() = writeFn and
-      writingSite = w
     )
     or
     exists(MethodCallExpr c |

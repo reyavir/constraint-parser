@@ -30,6 +30,7 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
     "Action":         ("element", "negated"),
     "CallEvent":      ("api",),
     "CompoundEvent":  ("op", "left", "right"),
+    "NotEvent":       ("child",),
     "Guard":          ("op", "left", "right"),
     "BinaryExpr":     ("op", "left", "right"),
     "IncrementExpr":  ("element", "delta"),
@@ -128,9 +129,17 @@ class ASTBuilder(ConstraintVisitor):
     def visitLogic_factor(self, ctx: ConstraintParser.Logic_factorContext):
         if ctx.NOT() is not None:
             inner = self.visit(ctx.logic_factor())
-            if inner.get("type") != "Action":
-                raise SemanticError("NOT can only be applied to user actions A(...).")
-            return _check_required({**inner, "negated": not inner["negated"]})
+            # `NOT A(...)` keeps its historical shape (Action.negated flag)
+            # so the COUNTERFACTUAL dispatcher continues to work unchanged.
+            if inner.get("type") == "Action":
+                return _check_required({**inner, "negated": not inner["negated"]})
+            # `NOT <event-atom>` (write/call/persist/compound) wraps the
+            # child in a NotEvent node. The dispatcher recurses on the
+            # child and inverts the per-leaf/per-subtree verdict.
+            return _check_required({
+                "type":  "NotEvent",
+                "child": inner,
+            })
         if ctx.logic_expr() is not None:
             return self.visit(ctx.logic_expr())
         return self.visit(ctx.atom())

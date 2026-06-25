@@ -42,9 +42,6 @@ def verify(
         case ConstraintType.API_CALL:       return _todo(ctype, "check_api_call(ast, traces, network_log)")
         case ConstraintType.COMPOUND:       return _todo(ctype, "check_compound(ast, traces)")
         case ConstraintType.EXCLUSIVE:      return _todo(ctype, "check_exclusive(ast, traces)")
-        case ConstraintType.GUARD:          return _todo(ctype, "check_guard(ast, traces)")
-        case ConstraintType.ORDER:          return _todo(ctype, "check_order(ast, traces)")
-        case ConstraintType.STATIC:         return _todo(ctype, "run_codeql(query, db_path)")
         case _:
             raise NotImplementedError(f"No verifier mapped to {ctype}.")
 

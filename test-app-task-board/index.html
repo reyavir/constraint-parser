@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport"/>
+<title>FlowBoard | Connected Tasks + Parent-Child Arrows</title>
+<style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* avoid text selection while dragging */
+        }
+
+        body {
+            font-family: 'Inter', system-ui, 'Segoe UI', sans-serif;
+            background: #d9e2ef;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* toolbar */
+        .toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #1e293b;
+            color: white;
+            padding: 0.7rem 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            gap: 0.8rem;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #334155;
+            border: none;
+            padding: 0.45rem 1rem;
+            border-radius: 40px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 0.8rem;
+        }
+
+        button:hover {
+            background: #475569;
+            transform: scale(0.97);
+        }
+
+        .btn-primary {
+            background: #3b4e6e;
+        }
+        .btn-primary:hover {
+            background: #2c3e66;
+        }
+
+        .mode-active {
+            background: #0f766e;
+            box-shadow: 0 0 0 2px #ccfbf1;
+        }
+
+        /* whiteboard canvas */
+        .whiteboard {
+            position: fixed;
+            top: 68px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #f1f5f9;
+            background-image: 
+                linear-gradient(#cbd5e1 1px, transparent 1px),
+                linear-gradient(90deg, #cbd5e1 1px, transparent 1px);
+            background-size: 32px 32px;
+            overflow: auto;
+            cursor: default;
+        }
+
+        .board-content {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-width: 1600px;
+            min-height: 1000px;
+        }
+
+        /* SVG connection layer */
+        .connections-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .connections-layer svg {
+            width: 100%;
+            height: 100%;
+        }
+        .connection-line {
+            stroke: #6b7280;
+            stroke-width: 2.5;
+            stroke-dasharray: 5 4;
+            marker-end: url(#arrowhead);
+            opacity: 0.8;
+        }
+        .connection-line.highlight {
+            stroke: #f59e0b;
+            stroke-width: 3.5;
+            stroke-dasharray: none;
+        }
+
+        /* CARD style */
+        .task-card {
+            position: absolute;
+            width: 270px;
+            background: white;
+            border-radius: 1rem;
+            padding: 0.8rem;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.12);
+            cursor: grab;
+            transition: box-shadow 0.1s;
+            border-left: 6px solid;
+            z-index: 10;
+            backdrop-filter: blur(0px);
+        }
+        .task-card:active { cursor: grabbing; }
+        .task-card.dragging-card {
+            opacity: 0.7;
+            cursor: grabbing;
+            z-index: 999;
+        }
+        .task-card.status-todo { border-left-color: #64748b; background: #ffffff; }
+        .task-card.status-progress { border-left-color: #3b82f6; background: #eff6ff; }
+        .task-card.status-qa { border-left-color: #f59e0b; background: #fffbeb; }
+        .task-card.status-done { border-left-color: #10b981; background: #f0fdf4; }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.3rem;
+        }
+        .card-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            word-break: break-word;
+        }
+        .priority-badge {
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 0.2rem 0.5rem;
+            border-radius: 40px;
+        }
+        .priority-high { background: #fee2e2; color: #b91c1c; }
+        .priority-medium { background: #ffedd5; color: #b45309; }
+        .priority-low { background: #dcfce7; color: #15803d; }
+        .card-desc {
+            font-size: 0.7rem;
+            color: #334155;
+            margin: 0.3rem 0;
+        }
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.5rem;
+            font-size: 0.7rem;
+        }
+        .status-label {
+            background: #e2e8f0;
+            padding: 0.2rem 0.5rem;
+            border-radius: 20px;
+        }
+        .child-count {
+            background: #cbd5e1;
+            border-radius: 20px;
+            padding: 0.1rem 0.5rem;
+            font-size: 0.65rem;
+        }
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+            border-radius: 20px;
+        }
+        .icon-btn:hover { background: #e2e8f0; }
+
+        /* status drop zones */
+        .status-zone {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            z-index: 50;
+            pointer-events: none;
+        }
+        .zone {
+            pointer-events: auto;
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 0.5rem 1rem;
+            border-radius: 60px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .zone.active-drop { transform: scale(1.05); background: #2d3e66; }
+
+        /* someday sidebar */
+        .someday-panel {
+            position: fixed;
+            right: 0;
+            top: 68px;
+            bottom: 0;
+            width: 280px;
+            background: #1e293b;
+            color: #e2e8f0;
+            transform: translateX(100%);
+            transition: transform 0.25s ease;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+        }
+        .someday-panel.open { transform: translateX(0); }
+        .someday-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+        .someday-card {
+            background: #0f172a;
+            padding: 0.6rem;
+            border-radius: 0.8rem;
+            cursor: pointer;
+        }
+        .close-someday { background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+        .toggle-someday { background: #475569; }
+    </style>
+</head>
+<body>
+<div class="toolbar">
+<div class="logo" data-cv-label="🔗 FlowBoard · Parent-Child Arr" id="cv_0001">🔗 FlowBoard · Parent-Child Arrows</div>
+<div class="btn-group" data-cv-label="+ New Card 🔗 Link Mode (Parent" id="cv_0002">
+<button class="btn-primary" data-cv-label="+ New Card" id="newTaskBtn">+ New Card</button>
+<button class="" data-cv-label="🔗 Link Mode (Parent)" id="linkModeBtn">🔗 Link Mode (Parent)</button>
+<button data-cv-label="🎯 Organize by Priority" id="organizeBtn">🎯 Organize by Priority</button>
+<button class="toggle-someday" data-cv-label="📦 Someday ( 0 )" id="toggleSomedayBtn">📦 Someday (<span data-cv-label="0" id="somedayCount">0</span>)</button>
+</div>
+</div>
+<div class="whiteboard" id="whiteboard">
+<div class="board-content" id="boardContent">
+<div class="connections-layer" id="connectionsLayer">
+<svg height="100%" id="arrowSvg" width="100%">
+<defs>
+<marker id="arrowhead" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4">
+<polygon fill="#6b7280" points="0 0, 8 4, 0 8" stroke="none"></polygon>
+</marker>
+</defs>
+</svg>
+</div>
+</div>
+</div>
+<div class="status-zone" data-cv-label="📋 TO DO ⚡ IN PROGRESS 🔍 QA ✅ D" id="statusZones">
+<div class="zone" data-cv-label="📋 TO DO" data-drop-status="todo" id="cv_0003">📋 TO DO</div>
+<div class="zone" data-cv-label="⚡ IN PROGRESS" data-drop-status="progress" id="cv_0004">⚡ IN PROGRESS</div>
+<div class="zone" data-cv-label="🔍 QA" data-drop-status="qa" id="cv_0005">🔍 QA</div>
+<div class="zone" data-cv-label="✅ DONE" data-drop-status="done" id="cv_0006">✅ DONE</div>
+</div>
+<div class="someday-panel" data-cv-label="📦 Someday / On Hold ✕" id="somedayPanel">
+<div data-cv-label="📦 Someday / On Hold ✕" id="cv_0007" style="display:flex; justify-content:space-between; margin-bottom:1rem;">
+<span data-cv-label="📦 Someday / On Hold" id="cv_0008">📦 Someday / On Hold</span>
+<button class="close-someday" data-cv-label="✕" id="closeSomedayBtn">✕</button>
+</div>
+<div class="someday-list" id="somedayList"></div>
+</div>
+<script>
+    // ---------- DATA MODEL ----------
+    let tasks = [];           // active cards
+    let somedayTasks = [];    // parked tasks
+    let nextId = 1;
+    let parentChildMap = new Map(); // childId -> parentId
+    let childrenMap = new Map();    // parentId -> Set(childIds)
+
+    let draggedCardId = null;
+    let isDragging = false;
+    let activeCardElem = null;
+    let startMouseX = 0, startMouseY = 0;
+    let startLeft = 0, startTop = 0;
+
+    // linking mode
+    let linkModeActive = false;
+    let selectedParentId = null;
+
+    const STATUS = { TODO: 'todo', PROGRESS: 'progress', QA: 'qa', DONE: 'done' };
+
+    // ---- helpers ----
+    function priorityWeight(p) { return p === 'high' ? 3 : p === 'medium' ? 2 : 1; }
+    function getPriorityLabel(p) { return p === 'high' ? '🔴 HIGH' : p === 'medium' ? '🟠 MEDIUM' : '🔵 LOW'; }
+    function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'); }
+
+    // Update relationship maps
+    function rebuildMaps() {
+        parentChildMap.clear();
+        childrenMap.clear();
+        tasks.forEach(task => {
+            if (task.parentId) {
+                parentChildMap.set(task.id, task.parentId);
+                if (!childrenMap.has(task.parentId)) childrenMap.set(task.parentId, new Set());
+                childrenMap.get(task.parentId).add(task.id);
+            }
+        });
+    }
+
+    // Check for cycles (before setting parent)
+    function wouldCreateCycle(childId, potentialParentId) {
+        if (childId === potentialParentId) return true;
+        let current = potentialParentId;
+        while (current) {
+            if (current === childId) return true;
+            current = parentChildMap.get(current);
+        }
+        return false;
+    }
+
+    // Set parent-child relationship
+    function setParent(childId, parentId) {
+        if (childId === parentId) return false;
+        if (wouldCreateCycle(childId, parentId)) return false;
+        const childTask = tasks.find(t => t.id === childId);
+        if (!childTask) return false;
+        // remove old relationship
+        if (childTask.parentId) {
+            const oldParent = childTask.parentId;
+            if (childrenMap.has(oldParent)) childrenMap.get(oldParent).delete(childId);
+        }
+        childTask.parentId = parentId;
+        parentChildMap.set(childId, parentId);
+        if (!childrenMap.has(parentId)) childrenMap.set(parentId, new Set());
+        childrenMap.get(parentId).add(childId);
+        return true;
+    }
+
+    function removeParent(childId) {
+        const task = tasks.find(t => t.id === childId);
+        if (task && task.parentId) {
+            const oldParent = task.parentId;
+            if (childrenMap.has(oldParent)) childrenMap.get(oldParent).delete(childId);
+            delete task.parentId;
+            parentChildMap.delete(childId);
+        }
+    }
+
+    // get all descendants recursively
+    function getAllDescendants(parentId, visited = new Set()) {
+        let descendants = [];
+        const children = childrenMap.get(parentId) || new Set();
+        for (let childId of children) {
+            if (visited.has(childId)) continue;
+            visited.add(childId);
+            descendants.push(childId);
+            descendants.push(...getAllDescendants(childId, visited));
+        }
+        return descendants;
+    }
+
+    // status propagation: if parent changes status, children follow? (natural requirement)
+    function propagateStatusToChildren(parentId, newStatus, visited = new Set()) {
+        const children = childrenMap.get(parentId) || new Set();
+        for (let childId of children) {
+            if (visited.has(childId)) continue;
+            visited.add(childId);
+            const childTask = tasks.find(t => t.id === childId);
+            if (childTask && childTask.status !== newStatus) {
+                childTask.status = newStatus;
+            }
+            propagateStatusToChildren(childId, newStatus, visited);
+        }
+    }
+
+    // check if parent can be marked as done (all children done)
+    function canMarkDone(parentId) {
+        const children = childrenMap.get(parentId) || new Set();
+        for (let childId of children) {
+            const child = tasks.find(t => t.id === childId);
+            if (!child || child.status !== STATUS.DONE) return false;
+            if (!canMarkDone(childId)) return false;
+        }
+        return true;
+    }
+
+    // enforce finish condition when changing status
+    function tryChangeStatus(task, newStatus) {
+        if (task.status === newStatus) return true;
+        if (newStatus === STATUS.DONE) {
+            // if task has children, check all children done
+            const hasChildren = (childrenMap.get(task.id) || new Set()).size > 0;
+            if (hasChildren && !canMarkDone(task.id)) {
+                alert(`❌ Cannot mark "${task.title}" as DONE until all its child tasks are completed.`);
+                return false;
+            }
+        }
+        const oldStatus = task.status;
+        task.status = newStatus;
+        // propagate status to all descendants (children follow parent)
+        if (oldStatus !== newStatus) {
+            propagateStatusToChildren(task.id, newStatus);
+        }
+        return true;
+    }
+
+    // move card and its descendants (dragging parent moves children)
+    function moveCardAndChildren(cardId, deltaX, deltaY, movedSet = new Set()) {
+        if (movedSet.has(cardId)) return;
+        movedSet.add(cardId);
+        const card = tasks.find(t => t.id === cardId);
+        if (card) {
+            card.x = (card.x || 100) + deltaX;
+            card.y = (card.y || 100) + deltaY;
+        }
+        const children = childrenMap.get(cardId) || new Set();
+        for (let childId of children) {
+            moveCardAndChildren(childId, deltaX, deltaY, movedSet);
+        }
+    }
+
+    // ---- Data Persistence ----
+    function loadDemoData() {
+        tasks = [
+            { id: 1, title: "🚀 Launch new website", description: "Main project release", priority: "high", status: STATUS.PROGRESS, x: 80, y: 150, parentId: null },
+            { id: 2, title: "Design system", description: "Components library", priority: "high", status: STATUS.PROGRESS, x: 420, y: 150, parentId: 1 },
+            { id: 3, title: "Code review", description: "Peer review design", priority: "medium", status: STATUS.TODO, x: 420, y: 300, parentId: 2 },
+            { id: 4, title: "Write documentation", description: "User guide", priority: "low", status: STATUS.TODO, x: 760, y: 150, parentId: 1 },
+            { id: 5, title: "Fix homepage bug", description: "Critical fix", priority: "high", status: STATUS.QA, x: 1100, y: 400, parentId: null }
+        ];
+        somedayTasks = [];
+        nextId = 100;
+        tasks.forEach(t => { if (t.x === undefined) t.x = 100; if (t.y === undefined) t.y = 100; });
+        rebuildMaps();
+    }
+
+    function loadFromStorage() {
+        const stored = localStorage.getItem('connectedFlowData');
+        if (stored) {
+            try {
+                const data = JSON.parse(stored);
+                tasks = data.tasks || [];
+                somedayTasks = data.somedayTasks || [];
+                nextId = data.nextId || 100;
+                if (tasks.length === 0) loadDemoData();
+                tasks.forEach(t => { if (t.x === undefined) t.x = 100; if (t.y === undefined) t.y = 100; });
+                rebuildMaps();
+            } catch(e) { loadDemoData(); }
+        } else { loadDemoData(); }
+        persist();
+    }
+
+    function persist() { localStorage.setItem('connectedFlowData', JSON.stringify({ tasks, somedayTasks, nextId })); }
+
+    // ---- Rendering ----
+    function renderBoard() {
+        const container = document.getElementById('boardContent');
+        if (!container) return;
+        // keep connections layer
+        let connLayer = document.getElementById('connectionsLayer');
+        if (!connLayer) {
+            connLayer = document.createElement('div');
+            connLayer.className = 'connections-layer';
+            connLayer.id = 'connectionsLayer';
+            connLayer.innerHTML = '<svg id="arrowSvg" width="100%" height="100%"><defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><polygon points="0 0,8 4,0 8" fill="#6b7280" /></marker></defs></svg>';
+            container.appendChild(connLayer);
+        }
+        // remove all task cards except the connection layer
+        const cards = document.querySelectorAll('.task-card');
+        cards.forEach(c => c.remove());
+        
+        tasks.forEach(task => {
+            const card = document.createElement('div');
+            card.className = `task-card status-${task.status}`;
+            card.setAttribute('data-id', task.id);
+            card.style.left = `${task.x}px`;
+            card.style.top = `${task.y}px`;
+            const childCount = (childrenMap.get(task.id) || new Set()).size;
+            card.innerHTML = `
+                <div class="card-header">
+                    <span class="card-title">${escapeHtml(task.title)}</span>
+                    <span class="priority-badge ${task.priority === 'high' ? 'priority-high' : (task.priority === 'medium' ? 'priority-medium' : 'priority-low')}">${getPriorityLabel(task.priority)}</span>
+                </div>
+                <div class="card-desc">${escapeHtml(task.description) || '—'}</div>
+                <div class="card-footer">
+                    <span class="status-label">${task.status === STATUS.TODO ? '📋 To Do' : task.status === STATUS.PROGRESS ? '⚡ Progress' : task.status === STATUS.QA ? '🔍 QA' : '✅ Done'}</span>
+                    ${childCount > 0 ? `<span class="child-count">🔗 ${childCount} subtask${childCount>1 ? 's' : ''}</span>` : ''}
+                    <button class="icon-btn unlink-btn" data-id="${task.id}" title="Remove parent link">🔗✖️</button>
+                    <button class="icon-btn park-btn" data-id="${task.id}" title="Park to Someday">📦</button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+        attachDragEvents();
+        attachUnlinkButtons();
+        attachParkButtons();
+        drawArrows();
+        updateSomedayCounter();
+        renderSomedaySidebar();
+    }
+
+    function drawArrows() {
+        const svg = document.querySelector('#arrowSvg');
+        if (!svg) return;
+        svg.innerHTML = `<defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><polygon points="0 0,8 4,0 8" fill="#6b7280" stroke="none" /></marker></defs>`;
+        for (let [childId, parentId] of parentChildMap.entries()) {
+            const childCard = document.querySelector(`.task-card[data-id="${childId}"]`);
+            const parentCard = document.querySelector(`.task-card[data-id="${parentId}"]`);
+            if (childCard && parentCard) {
+                const parentRect = parentCard.getBoundingClientRect();
+                const childRect = childCard.getBoundingClientRect();
+                const boardRect = document.getElementById('boardContent').getBoundingClientRect();
+                const startX = parentRect.right - boardRect.left - 8;
+                const startY = parentRect.top + parentRect.height/2 - boardRect.top;
+                const endX = childRect.left - boardRect.left + 5;
+                const endY = childRect.top + childRect.height/2 - boardRect.top;
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", startX);
+                line.setAttribute("y1", startY);
+                line.setAttribute("x2", endX);
+                line.setAttribute("y2", endY);
+                line.setAttribute("class", "connection-line");
+                line.setAttribute("marker-end", "url(#arrowhead)");
+                svg.appendChild(line);
+            }
+        }
+    }
+
+    // ---- Drag & Move (with children) ----
+    function attachDragEvents() {
+        const cards = document.querySelectorAll('.task-card');
+        cards.forEach(card => {
+            card.addEventListener('mousedown', onMouseDown);
+        });
+    }
+
+    function onMouseDown(e) {
+        if (e.target.classList.contains('unlink-btn') || e.target.classList.contains('park-btn')) return;
+        if (linkModeActive) {
+            e.preventDefault();
+            const cardId = parseInt(e.target.closest('.task-card').getAttribute('data-id'));
+            if (selectedParentId === null) {
+                selectedParentId = cardId;
+                alert(`✅ Parent selected: now click on a CHILD card to link. Mode still active.`);
+            } else {
+                if (selectedParentId === cardId) { alert("Cannot link a task to itself."); selectedParentId = null; return; }
+                const success = setParent(cardId, selectedParentId);
+                if (success) {
+                    persist();
+                    renderBoard();
+                    alert(`Linked! Parent → Child relation added.`);
+                } else { alert("Invalid link: would create cycle or invalid."); }
+                selectedParentId = null;
+                linkModeActive = false;
+                document.getElementById('linkModeBtn').classList.remove('mode-active');
+            }
+            return;
+        }
+        const card = e.target.closest('.task-card');
+        if (!card) return;
+        e.preventDefault();
+        activeCardElem = card;
+        draggedCardId = parseInt(card.getAttribute('data-id'));
+        startMouseX = e.clientX;
+        startMouseY = e.clientY;
+        const left = parseInt(card.style.left);
+        const top = parseInt(card.style.top);
+        startLeft = left;
+        startTop = top;
+        isDragging = true;
+        card.style.cursor = 'grabbing';
+        card.classList.add('dragging-card');
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    }
+
+    function onMouseMove(e) {
+        if (!isDragging || !activeCardElem) return;
+        const dx = e.clientX - startMouseX;
+        const dy = e.clientY - startMouseY;
+        const cardId = draggedCardId;
+        const deltaX = dx, deltaY = dy;
+        const parentTask = tasks.find(t => t.id === cardId);
+        if (parentTask) {
+            moveCardAndChildren(cardId, deltaX, deltaY);
+            persist();
+            renderBoard();
+            // reset start positions to avoid double accumulation
+            startMouseX = e.clientX;
+            startMouseY = e.clientY;
+            const newCard = document.querySelector(`.task-card[data-id="${cardId}"]`);
+            if (newCard) {
+                startLeft = parseInt(newCard.style.left);
+                startTop = parseInt(newCard.style.top);
+                activeCardElem = newCard;
+            }
+        }
+    }
+
+    function onMouseUp(e) {
+        if (!isDragging) return;
+        // after drop, check status zone
+        checkDropOnStatusZone(e);
+        isDragging = false;
+        if (activeCardElem) activeCardElem.style.cursor = 'grab';
+        document.querySelectorAll('.task-card').forEach(c => c.classList.remove('dragging-card'));
+        activeCardElem = null;
+        draggedCardId = null;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    }
+
+    function checkDropOnStatusZone(event) {
+        const zones = document.querySelectorAll('.zone');
+        let targetStatus = null;
+        for (let zone of zones) {
+            const rect = zone.getBoundingClientRect();
+            if (event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom) {
+                targetStatus = zone.getAttribute('data-drop-status');
+                break;
+            }
+        }
+        if (targetStatus && draggedCardId) {
+            const task = tasks.find(t => t.id === draggedCardId);
+            if (task && task.status !== targetStatus) {
+                if (targetStatus === STATUS.DONE && (childrenMap.get(task.id)?.size > 0) && !canMarkDone(task.id)) {
+                    alert(`❌ Cannot finish parent "${task.title}" before all subtasks are done.`);
+                } else {
+                    tryChangeStatus(task, targetStatus);
+                    persist();
+                    renderBoard();
+                }
+            }
+        }
+        draggedCardId = null;
+    }
+
+    function attachUnlinkButtons() {
+        document.querySelectorAll('.unlink-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.getAttribute('data-id'));
+                removeParent(id);
+                persist();
+                renderBoard();
+            });
+        });
+    }
+
+    function parkTaskToSomeday(taskId) {
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx === -1) return;
+        const task = tasks[idx];
+        const descendants = getAllDescendants(taskId);
+        const toPark = [task, ...descendants.map(id => tasks.find(t => t.id === id))].filter(Boolean);
+        for (let t of toPark) {
+            const parkCopy = { id: t.id, title: t.title, description: t.description, priority: t.priority, originalStatus: t.status };
+            somedayTasks.push(parkCopy);
+            const tIndex = tasks.findIndex(tt => tt.id === t.id);
+            if (tIndex !== -1) tasks.splice(tIndex, 1);
+        }
+        rebuildMaps();
+        persist();
+        renderBoard();
+    }
+
+    function restoreFromSomeday(id) {
+        const idx = somedayTasks.findIndex(t => t.id === id);
+        if (idx === -1) return;
+        const parked = somedayTasks[idx];
+        const restored = { id: parked.id, title: parked.title, description: parked.description, priority: parked.priority, status: parked.originalStatus || STATUS.TODO, x: 200 + Math.random() * 300, y: 200 + Math.random() * 200 };
+        tasks.push(restored);
+        somedayTasks.splice(idx, 1);
+        rebuildMaps();
+        persist();
+        renderBoard();
+    }
+
+    function organizeByPriority() {
+        const groups = { high: [], medium: [], low: [] };
+        tasks.forEach(t => groups[t.priority].push(t));
+        let yOff = 80;
+        for (let p of ['high', 'medium', 'low']) {
+            groups[p].forEach((task, i) => {
+                task.x = 80 + (i % 4) * 310;
+                task.y = yOff + Math.floor(i / 4) * 280;
+            });
+            yOff += groups[p].length ? 320 : 0;
+        }
+        persist();
+        renderBoard();
+    }
+
+    function showNewTaskModal() {
+        const title = prompt("Task title:", "New task");
+        if (!title) return;
+        const desc = prompt("Description (optional):", "") || "";
+        const priority = prompt("Priority (low/medium/high):", "medium").toLowerCase();
+        const newTask = { id: nextId++, title, description: desc, priority: ['low','medium','high'].includes(priority) ? priority : 'medium', status: STATUS.TODO, x: 100 + Math.random() * 400, y: 100 + Math.random() * 300 };
+        tasks.push(newTask);
+        rebuildMaps();
+        persist();
+        renderBoard();
+    }
+
+    function attachParkButtons() {
+        document.querySelectorAll('.park-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.getAttribute('data-id'));
+                parkTaskToSomeday(id);
+            });
+        });
+    }
+
+    function renderSomedaySidebar() {
+        const container = document.getElementById('somedayList');
+        if (!container) return;
+        container.innerHTML = somedayTasks.length ? '' : '<div style="padding:1rem; text-align:center;">No parked tasks</div>';
+        somedayTasks.forEach(task => {
+            const div = document.createElement('div');
+            div.className = 'someday-card';
+            div.innerHTML = `<div style="font-weight:600;">${escapeHtml(task.title)}</div><div style="font-size:0.7rem;">${escapeHtml(task.description)}</div><button class="restore-someday-btn" data-id="${task.id}" style="margin-top:0.3rem;">↩️ Restore</button>`;
+            container.appendChild(div);
+        });
+        document.querySelectorAll('.restore-someday-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => { e.stopPropagation(); restoreFromSomeday(parseInt(btn.getAttribute('data-id'))); });
+        });
+    }
+
+    function updateSomedayCounter() { document.getElementById('somedayCount').innerText = somedayTasks.length; }
+
+    function toggleLinkMode() {
+        linkModeActive = !linkModeActive;
+        const btn = document.getElementById('linkModeBtn');
+        if (linkModeActive) { btn.classList.add('mode-active'); selectedParentId = null; alert("🔗 Link mode ON: click a PARENT card, then click a CHILD card."); }
+        else { btn.classList.remove('mode-active'); selectedParentId = null; }
+    }
+
+    function init() {
+        loadFromStorage();
+        renderBoard();
+        document.getElementById('newTaskBtn').addEventListener('click', showNewTaskModal);
+        document.getElementById('linkModeBtn').addEventListener('click', toggleLinkMode);
+        document.getElementById('organizeBtn').addEventListener('click', organizeByPriority);
+        document.getElementById('toggleSomedayBtn').addEventListener('click', () => document.getElementById('somedayPanel').classList.toggle('open'));
+        document.getElementById('closeSomedayBtn').addEventListener('click', () => document.getElementById('somedayPanel').classList.remove('open'));
+        const zones = document.querySelectorAll('.zone');
+        zones.forEach(z => { z.addEventListener('dragover', e => e.preventDefault()); z.addEventListener('dragenter', e => e.target.classList.add('active-drop')); z.addEventListener('dragleave', e => e.target.classList.remove('active-drop')); });
+        window.addEventListener('resize', () => renderBoard());
+    }
+    init();
+</script>
+</body>
+</html>

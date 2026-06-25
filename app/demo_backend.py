@@ -29,7 +29,30 @@ from pathlib import Path
 from flask import Blueprint, jsonify, request, send_from_directory
 
 
-TEST_APP_DIR = (Path(__file__).parent.parent / "test-app").resolve()
+# Active app directory served by /run/. Runtime-settable via set_app_dir()
+# so the user can flip between bundled demo and their own app from the UI
+# (the Static Analysis "Build / rebuild DB" button writes here on success).
+_DEFAULT_APP_DIR = (Path(__file__).parent.parent / "test-app").resolve()
+_state: dict = {"dir": _DEFAULT_APP_DIR}
+
+
+def get_app_dir() -> Path:
+    return _state["dir"]
+
+
+def set_app_dir(path: str | Path) -> Path:
+    """Update the directory served by /run/. Returns the resolved Path."""
+    p = Path(path).expanduser().resolve()
+    if not p.is_dir():
+        raise FileNotFoundError(f"Not a directory: {p}")
+    _state["dir"] = p
+    return p
+
+
+# Back-compat: a few callers (and the original docstring) reference the
+# module-level name. Keep it pointing at the default so anything reading
+# the constant directly still works on import.
+TEST_APP_DIR = _DEFAULT_APP_DIR
 
 bp = Blueprint("demo_backend", __name__)
 
@@ -81,12 +104,19 @@ def _cart_payload(cart: list[dict]) -> dict:
 
 @bp.get("/run/")
 def run_index():
-    return send_from_directory(TEST_APP_DIR, "index.html")
+    return send_from_directory(get_app_dir(), "index.html")
 
 
 @bp.get("/run/<path:filename>")
 def run_static(filename: str):
-    return send_from_directory(TEST_APP_DIR, filename)
+    return send_from_directory(get_app_dir(), filename)
+
+
+@bp.get("/run/app-info")
+def run_app_info():
+    """What's currently being served at /run/. Used by the UI to show
+    which app is active and to detect mismatches with the mapping."""
+    return jsonify({"app_dir": str(get_app_dir())})
 
 
 # ─────────────────────────────────────────────────────────────────────────

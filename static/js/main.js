@@ -570,10 +570,17 @@ rebuildDbBtn.addEventListener("click", async () => {
     const data = await res.json();
     if (data.success) {
       stage1Result.className = "stage1-result stage1-info";
-      stage1Result.innerHTML = `<strong>CodeQL DB rebuilt</strong> at <code>${escapeHtml(data.db_path)}</code>.`;
+      const appDir = data.app_dir ? ` Now serving <code>${escapeHtml(data.app_dir)}</code> at <code>/run/</code>.` : "";
+      stage1Result.innerHTML = `<strong>CodeQL DB built</strong> at <code>${escapeHtml(data.db_path)}</code>.${appDir}`;
+      // Ask any sibling tabs / overlays to refresh their data so the
+      // constraint builder picks up the new mapping and the iframe
+      // points at the new app.
+      window.dispatchEvent(new CustomEvent("cv:app-changed", {
+        detail: { app_dir: data.app_dir, db_path: data.db_path },
+      }));
     } else {
       stage1Result.className = "stage1-result stage1-fail";
-      stage1Result.innerHTML = `<strong>Rebuild failed:</strong> ${escapeHtml(data.error || "unknown")}`;
+      stage1Result.innerHTML = `<strong>Build failed:</strong> ${escapeHtml(data.error || "unknown")}`;
     }
     stage1Result.classList.remove("hidden");
   } catch {
@@ -582,7 +589,7 @@ rebuildDbBtn.addEventListener("click", async () => {
     stage1Result.classList.remove("hidden");
   } finally {
     rebuildDbBtn.disabled  = false;
-    rebuildDbBtn.innerHTML = "Rebuild DB";
+    rebuildDbBtn.innerHTML = "Build / rebuild DB";
   }
 });
 

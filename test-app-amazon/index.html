@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VOLT — Tech Essentials</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&amp;family=Space+Mono:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --panel: #15151a;
+    --panel-2: #1d1d24;
+    --ink: #f4f4ef;
+    --muted: #8a8a96;
+    --accent: #e8ff3a;
+    --accent-dim: #b9cc2e;
+    --danger: #ff5b5b;
+    --fav: #ff4d8d;
+    --line: #2a2a33;
+    --radius: 14px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background:
+      radial-gradient(900px 500px at 85% -10%, rgba(232,255,58,0.06), transparent 60%),
+      radial-gradient(700px 400px at 0% 100%, rgba(255,77,141,0.05), transparent 55%),
+      var(--bg);
+    color: var(--ink);
+    font-family: 'Bricolage Grotesque', sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28px 7vw;
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(13,13,15,0.82);
+    backdrop-filter: blur(12px);
+  }
+
+  .brand {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+  .brand b { color: var(--accent); }
+  .brand span {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-left: 8px;
+  }
+
+  .cart-toggle {
+    position: relative;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 11px 20px;
+    border-radius: 999px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+    transition: .2s;
+  }
+  .cart-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .cart-count {
+    position: absolute;
+    top: -8px; right: -8px;
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+    font-size: 11px;
+    min-width: 20px;
+    height: 20px;
+    line-height: 20px;
+    border-radius: 999px;
+    text-align: center;
+    padding: 0 5px;
+  }
+
+  .cart-summary {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .cart-summary .sum-line {
+    text-align: right;
+    line-height: 1.15;
+  }
+  .cart-summary .sum-line .lbl {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .cart-summary .sum-line .val {
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  /* Toolbar: search + category filters */
+  .toolbar {
+    padding: 0 7vw;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .search-wrap {
+    flex: 1;
+    min-width: 240px;
+    position: relative;
+  }
+  .search-wrap::before {
+    content: '⌕';
+    position: absolute;
+    left: 16px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 20px;
+  }
+  #searchInput {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 14px 18px 14px 44px;
+    color: var(--ink);
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  #searchInput::placeholder { color: var(--muted); }
+  #searchInput:focus { border-color: var(--accent); }
+
+  .filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 11px 18px;
+    border-radius: 999px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: .2s;
+  }
+  .filter-btn:hover { color: var(--ink); border-color: #3a3a46; }
+  .filter-btn.active {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+
+  .no-results {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-size: 16px;
+  }
+
+  .hero {
+    padding: 60px 7vw 30px;
+  }
+  .hero h1 {
+    font-size: clamp(38px, 7vw, 86px);
+    line-height: .94;
+    letter-spacing: -3px;
+    font-weight: 800;
+    max-width: 14ch;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .hero p {
+    color: var(--muted);
+    margin-top: 22px;
+    font-size: 17px;
+    max-width: 46ch;
+  }
+
+  .grid {
+    padding: 30px 7vw 100px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 22px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: transform .25s, border-color .25s;
+    opacity: 0;
+    transform: translateY(18px);
+    animation: rise .6s forwards;
+  }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  .card:hover { transform: translateY(-5px); border-color: #3a3a46; }
+
+  .fav-btn {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--muted);
+    display: grid;
+    place-items: center;
+    transition: .2s;
+  }
+  .fav-btn:hover { transform: scale(1.12); }
+  .fav-btn.active {
+    color: var(--fav);
+    border-color: var(--fav);
+    background: rgba(255,77,141,0.12);
+  }
+
+  .thumb {
+    height: 150px;
+    display: grid;
+    place-items: center;
+    font-size: 74px;
+    background:
+      radial-gradient(circle at 50% 40%, rgba(232,255,58,0.10), transparent 70%),
+      var(--panel-2);
+    border-radius: 10px;
+    margin-bottom: 18px;
+  }
+
+  .cat {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: var(--accent-dim);
+    text-transform: uppercase;
+  }
+  .name {
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -.5px;
+    margin: 6px 0 2px;
+  }
+  .price {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    color: var(--ink);
+    margin-bottom: 18px;
+  }
+
+  .controls { margin-top: auto; display: flex; gap: 10px; align-items: stretch; }
+
+  .qty {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--panel-2);
+  }
+  .qty button {
+    background: none;
+    border: none;
+    color: var(--ink);
+    width: 34px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: .15s;
+  }
+  .qty button:hover { color: var(--accent); }
+  .qty span {
+    min-width: 30px;
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 15px;
+  }
+
+  .add {
+    flex: 1;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: .2s;
+  }
+  .add:hover { background: #fff; }
+  .add.in-cart { background: var(--panel-2); color: var(--accent); border: 1px solid var(--accent); }
+
+  /* Cart drawer */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    opacity: 0; pointer-events: none;
+    transition: .3s; z-index: 40;
+  }
+  .overlay.open { opacity: 1; pointer-events: auto; }
+
+  .drawer {
+    position: fixed;
+    top: 0; right: 0;
+    width: min(420px, 90vw);
+    height: 100%;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    z-index: 50;
+    transform: translateX(100%);
+    transition: transform .32s cubic-bezier(.4,0,.1,1);
+    display: flex;
+    flex-direction: column;
+  }
+  .drawer.open { transform: none; }
+
+  .drawer-head {
+    padding: 24px 26px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .drawer-head h3 { font-size: 22px; letter-spacing: -.5px; }
+  .drawer-head button {
+    background: none; border: none; color: var(--muted);
+    font-size: 24px; cursor: pointer;
+  }
+
+  .cart-items { flex: 1; overflow-y: auto; padding: 12px 18px; }
+  .empty { color: var(--muted); text-align: center; padding: 50px 20px; font-size: 15px; }
+
+  .ci {
+    display: flex; gap: 14px; align-items: center;
+    padding: 14px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .ci-thumb {
+    width: 50px; height: 50px;
+    background: var(--panel-2);
+    border-radius: 8px;
+    display: grid; place-items: center;
+    font-size: 26px; flex-shrink: 0;
+  }
+  .ci-info { flex: 1; }
+  .ci-info .n { font-size: 15px; font-weight: 600; }
+  .ci-info .m {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px; color: var(--muted); margin-top: 2px;
+  }
+  .ci-remove {
+    background: none; border: 1px solid var(--line);
+    color: var(--danger);
+    border-radius: 8px; padding: 6px 10px;
+    cursor: pointer; font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    transition: .2s;
+  }
+  .ci-remove:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+  .drawer-foot {
+    padding: 22px 26px;
+    border-top: 1px solid var(--line);
+  }
+  .total {
+    display: flex; justify-content: space-between;
+    margin-bottom: 16px; align-items: baseline;
+  }
+  .total span:first-child { color: var(--muted); }
+  .total span:last-child {
+    font-family: 'Space Mono', monospace;
+    font-size: 24px; font-weight: 700;
+  }
+  .checkout {
+    width: 100%; padding: 15px;
+    background: var(--accent); color: #000;
+    border: none; border-radius: 10px;
+    font-weight: 700; font-size: 15px; cursor: pointer;
+    font-family: 'Bricolage Grotesque', sans-serif;
+  }
+  .checkout:hover { background: #fff; }
+</style>
+</head>
+<body>
+<header id="siteHeader">
+<div class="brand" data-cv-label="VOLT . TECH ESSENTIALS" id="brand">VOLT<b>.</b><span data-cv-label="TECH ESSENTIALS" id="cv_0001">TECH ESSENTIALS</span></div>
+<div class="cart-summary" data-cv-label="Items: 0 $0 CART 0" id="cartSummary">
+<div class="sum-line" data-cv-label="Items: 0 $0" id="cartSummaryLines">
+<div class="lbl" data-cv-label="Items: 0" id="cartCountLabel">Items: <span data-cv-label="0" id="cartCountInline">0</span></div>
+<div class="val" data-cv-label="$0" id="cartTotalInline">$0</div>
+</div>
+<button class="cart-toggle" data-cv-label="CART 0" id="cartToggle">
+      CART
+      <span class="cart-count" data-cv-label="0" id="cartCount" style="display:none">0</span>
+</button>
+</div>
+</header>
+<section class="hero" id="hero">
+<h1 data-cv-label="Gear that keeps up with you." id="heroTitle">Gear that <em>keeps up</em> with you.</h1>
+<p data-cv-label="Four pieces. Zero clutter. Eve" id="heroSubtitle">Four pieces. Zero clutter. Everything you actually need to stay charged, connected, and working.</p>
+</section>
+<section class="toolbar" id="toolbar">
+<div class="search-wrap" id="searchWrap">
+<input autocomplete="off" id="searchInput" placeholder="Search products by name…" type="text"/>
+</div>
+<div class="filters" data-cv-label="All Power Audio Compute" id="filterButtons">
+<button class="filter-btn active" data-cat="all" data-cv-label="All" id="filterAll">All</button>
+<button class="filter-btn" data-cat="Power" data-cv-label="Power" id="filterPower">Power</button>
+<button class="filter-btn" data-cat="Audio" data-cv-label="Audio" id="filterAudio">Audio</button>
+<button class="filter-btn" data-cat="Compute" data-cv-label="Compute" id="filterCompute">Compute</button>
+</div>
+<div class="promo-row" id="promoRow">
+<input id="promoCodeInput" placeholder="Enter promo code" type="text"/>
+<button id="applyPromoBtn">Apply</button>
+<span>Active promo: <span id="appliedPromoDisplay">—</span></span>
+</div>
+<div class="checkout-row" id="checkoutRow">
+<button id="checkoutBtn">Checkout</button>
+<span>Last checkout count: <span id="checkoutSummaryDisplay">—</span></span>
+</div>
+<div class="status-row" id="statusRow">
+<span>Showing <span id="visibleCountAmazon">5</span> · filter: <span id="currentFilterDisplay">all</span> · drawer: <span id="drawerStatus">closed</span> · favorites: <span id="favoritesCount">0</span> · <span id="noResultsMessage"></span></span>
+</div>
+</section>
+<!-- Static product grid -->
+<main class="grid" id="productGrid">
+<article class="card" data-cat="Power" data-id="charger" data-name="65w gan charger" id="card-charger" style="animation-delay:.05s">
+<button aria-label="favorite" class="fav-btn" data-cv-label="♥" data-fav="charger" id="fav-charger">♥</button>
+<div class="thumb" data-cv-label="🔌" id="thumb-charger">🔌</div>
+<div class="cat" data-cv-label="Power" id="cat-charger">Power</div>
+<div class="name" data-cv-label="65W GaN Charger" id="name-charger">65W GaN Charger</div>
+<div class="price" data-cv-label="$39" id="price-charger">$39</div>
+<div class="controls" data-cv-label="− 1 + Add to Cart" id="controls-charger">
+<div class="qty" data-cv-label="− 1 +" id="qty-charger">
+<button data-cv-label="−" data-q="charger" data-step="-1" id="qtyminus-charger">−</button>
+<span data-cv-label="1" data-qval="charger" id="qtyval-charger">1</span>
+<button data-cv-label="+" data-q="charger" data-step="1" id="qtyplus-charger">+</button>
+</div>
+<button class="add" data-add="charger" data-cv-label="Add to Cart" id="add-charger">Add to Cart</button>
+</div>
+</article>
+<article class="card" data-cat="Audio" data-id="earbuds" data-name="pulse earbuds" id="card-earbuds" style="animation-delay:.12s">
+<button aria-label="favorite" class="fav-btn" data-cv-label="♥" data-fav="earbuds" id="fav-earbuds">♥</button>
+<div class="thumb" data-cv-label="🎧" id="thumb-earbuds">🎧</div>
+<div class="cat" data-cv-label="Audio" id="cat-earbuds">Audio</div>
+<div class="name" data-cv-label="Pulse Earbuds" id="name-earbuds">Pulse Earbuds</div>
+<div class="price" data-cv-label="$89" id="price-earbuds">$89</div>
+<div class="controls" data-cv-label="− 1 + Add to Cart" id="controls-earbuds">
+<div class="qty" data-cv-label="− 1 +" id="qty-earbuds">
+<button data-cv-label="−" data-q="earbuds" data-step="-1" id="qtyminus-earbuds">−</button>
+<span data-cv-label="1" data-qval="earbuds" id="qtyval-earbuds">1</span>
+<button data-cv-label="+" data-q="earbuds" data-step="1" id="qtyplus-earbuds">+</button>
+</div>
+<button class="add" data-add="earbuds" data-cv-label="Add to Cart" id="add-earbuds">Add to Cart</button>
+</div>
+</article>
+<article class="card" data-cat="Audio" data-id="headphone" data-name="studio headphone" id="card-headphone" style="animation-delay:.19s">
+<button aria-label="favorite" class="fav-btn" data-cv-label="♥" data-fav="headphone" id="fav-headphone">♥</button>
+<div class="thumb" data-cv-label="🎵" id="thumb-headphone">🎵</div>
+<div class="cat" data-cv-label="Audio" id="cat-headphone">Audio</div>
+<div class="name" data-cv-label="Studio Headphone" id="name-headphone">Studio Headphone</div>
+<div class="price" data-cv-label="$199" id="price-headphone">$199</div>
+<div class="controls" data-cv-label="− 1 + Add to Cart" id="controls-headphone">
+<div class="qty" data-cv-label="− 1 +" id="qty-headphone">
+<button data-cv-label="−" data-q="headphone" data-step="-1" id="qtyminus-headphone">−</button>
+<span data-cv-label="1" data-qval="headphone" id="qtyval-headphone">1</span>
+<button data-cv-label="+" data-q="headphone" data-step="1" id="qtyplus-headphone">+</button>
+</div>
+<button class="add" data-add="headphone" data-cv-label="Add to Cart" id="add-headphone">Add to Cart</button>
+</div>
+</article>
+<article class="card" data-cat="Compute" data-id="laptop" data-name="aero 14 laptop" id="card-laptop" style="animation-delay:.26s">
+<button aria-label="favorite" class="fav-btn" data-cv-label="♥" data-fav="laptop" id="fav-laptop">♥</button>
+<div class="thumb" data-cv-label="💻" id="thumb-laptop">💻</div>
+<div class="cat" data-cv-label="Compute" id="cat-laptop">Compute</div>
+<div class="name" data-cv-label="Aero 14 Laptop" id="name-laptop">Aero 14 Laptop</div>
+<div class="price" data-cv-label="$1299" id="price-laptop">$1299</div>
+<div class="controls" data-cv-label="− 1 + Add to Cart" id="controls-laptop">
+<div class="qty" data-cv-label="− 1 +" id="qty-laptop">
+<button data-cv-label="−" data-q="laptop" data-step="-1" id="qtyminus-laptop">−</button>
+<span data-cv-label="1" data-qval="laptop" id="qtyval-laptop">1</span>
+<button data-cv-label="+" data-q="laptop" data-step="1" id="qtyplus-laptop">+</button>
+</div>
+<button class="add" data-add="laptop" data-cv-label="Add to Cart" id="add-laptop">Add to Cart</button>
+</div>
+</article>
+<div class="no-results" data-cv-label="No products match your search." id="noResults" style="display:none">No products match your search.</div>
+</main>
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer">
+<div class="drawer-head" data-cv-label="Your Cart ×" id="drawerHead">
+<h3 data-cv-label="Your Cart" id="drawerTitle">Your Cart</h3>
+<button data-cv-label="×" id="closeDrawer">×</button>
+</div>
+<div class="cart-items" id="cartItems"></div>
+<div class="drawer-foot" data-cv-label="Total $0 Checkout" id="drawerFoot">
+<div class="total" data-cv-label="Total $0" id="totalRow"><span data-cv-label="Total" id="totalLabel">Total</span><span data-cv-label="$0" id="total">$0</span></div>
+<button class="checkout" data-cv-label="Checkout" id="checkoutBtn">Checkout</button>
+</div>
+</aside>
+<script>
+/* ============================================================
+   Product catalog (seed data for the local DB)
+============================================================ */
+const PRODUCTS = {
+  charger:   { id: 'charger',   name: '65W GaN Charger',  price: 39,   emoji: '🔌' },
+  earbuds:   { id: 'earbuds',   name: 'Pulse Earbuds',    price: 89,   emoji: '🎧' },
+  headphone: { id: 'headphone', name: 'Studio Headphone', price: 199,  emoji: '🎵' },
+  laptop:    { id: 'laptop',    name: 'Aero 14 Laptop',   price: 1299, emoji: '💻' }
+};
+
+/* ============================================================
+   Local DB layer — IndexedDB (works from file:// with no server)
+   Stores:  cart  { id, qty }    favorites { id }
+============================================================ */
+const DB_NAME = 'volt-shop';
+const DB_VERSION = 1;
+let db;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('cart'))
+        d.createObjectStore('cart', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('favorites'))
+        d.createObjectStore('favorites', { keyPath: 'id' });
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function tx(store, mode) {
+  return db.transaction(store, mode).objectStore(store);
+}
+function dbGetAll(store) {
+  return new Promise((res, rej) => {
+    const r = tx(store, 'readonly').getAll();
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function dbPut(store, value) {
+  return new Promise((res, rej) => {
+    const r = tx(store, 'readwrite').put(value);
+    r.onsuccess = () => res();
+    r.onerror = () => rej(r.error);
+  });
+}
+function dbDelete(store, key) {
+  return new Promise((res, rej) => {
+    const r = tx(store, 'readwrite').delete(key);
+    r.onsuccess = () => res();
+    r.onerror = () => rej(r.error);
+  });
+}
+
+/* ============================================================
+   App logic
+============================================================ */
+const qtyState = { charger: 1, earbuds: 1, headphone: 1, laptop: 1 };
+
+async function getCart() {
+  const rows = await dbGetAll('cart');           // read from DB each load
+  const map = {};
+  rows.forEach(r => map[r.id] = r.qty);
+  return map;
+}
+async function getFavs() {
+  const rows = await dbGetAll('favorites');       // read from DB each load
+  return new Set(rows.map(r => r.id));
+}
+
+async function render() {
+  const cart = await getCart();
+  const favs = await getFavs();
+
+  // favorite buttons
+  document.querySelectorAll('[data-fav]').forEach(btn => {
+    btn.classList.toggle('active', favs.has(btn.dataset.fav));
+  });
+  document.getElementById('favoritesCount').textContent = String(favs.size);
+
+  // add-to-cart button states
+  document.querySelectorAll('[data-add]').forEach(btn => {
+    const inCart = cart[btn.dataset.add] != null;
+    btn.classList.toggle('in-cart', inCart);
+    btn.textContent = inCart ? 'In Cart ✓' : 'Add to Cart';
+  });
+
+  // quantity displays
+  Object.keys(qtyState).forEach(id => {
+    const el = document.querySelector(`[data-qval="${id}"]`);
+    if (el) el.textContent = qtyState[id];
+  });
+
+  // cart drawer
+  const items = document.getElementById('cartItems');
+  const ids = Object.keys(cart);
+  let total = 0, count = 0;
+
+  if (ids.length === 0) {
+    items.innerHTML = '<div class="empty">Your cart is empty.<br>Add something nice.</div>';
+  } else {
+    items.innerHTML = ids.map(id => {
+      const p = PRODUCTS[id], qty = cart[id];
+      total += p.price * qty;
+      count += qty;
+      return `
+        <div class="ci">
+          <div class="ci-thumb">${p.emoji}</div>
+          <div class="ci-info">
+            <div class="n">${p.name}</div>
+            <div class="m">${qty} × $${p.price} = $${p.price * qty}</div>
+          </div>
+          <button class="ci-remove" data-remove="${id}">Remove</button>
+        </div>`;
+    }).join('');
+  }
+
+  document.getElementById('total').textContent = '$' + total;
+  const badge = document.getElementById('cartCount');
+  badge.textContent = count;
+  badge.style.display = count ? 'block' : 'none';
+
+  // visible header summary
+  document.getElementById('cartCountInline').textContent = count;
+  document.getElementById('cartTotalInline').textContent = '$' + total;
+
+  // Mirror cart summary to localStorage so a fresh tab can render the
+  // header instantly without waiting for the IndexedDB open.
+  localStorage.setItem('cart-summary', JSON.stringify({ count: count, total: total }));
+}
+
+/* ---- Event wiring (direct per-button bindings) ---- */
+const PRODUCT_IDS = ['charger', 'earbuds', 'headphone', 'laptop'];
+
+PRODUCT_IDS.forEach(id => {
+  // add to cart
+  document.getElementById('add-' + id).addEventListener('click', async () => {
+    await dbPut('cart', { id, qty: qtyState[id] });
+    render();
+  });
+
+  // quantity − / +
+  document.getElementById('qtyminus-' + id).addEventListener('click', () => {
+    qtyState[id] = Math.max(1, qtyState[id] - 1);
+    render();
+  });
+  document.getElementById('qtyplus-' + id).addEventListener('click', () => {
+    qtyState[id] = Math.max(1, qtyState[id] + 1);
+    render();
+  });
+
+  // favorite toggle
+  document.getElementById('fav-' + id).addEventListener('click', async () => {
+    const favs = await getFavs();
+    if (favs.has(id)) await dbDelete('favorites', id);
+    else await dbPut('favorites', { id });
+    render();
+  });
+});
+
+// remove buttons are created dynamically inside the cart drawer,
+// so they stay delegated to their container
+document.getElementById('cartItems').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-remove]');
+  if (!btn) return;
+  await dbDelete('cart', btn.dataset.remove);
+  render();
+});
+
+// drawer open/close
+const drawer = document.getElementById('drawer');
+const overlay = document.getElementById('overlay');
+function openCart() {
+  drawer.classList.add('open');
+  overlay.classList.add('open');
+  drawerStatus.textContent = 'open';
+}
+function closeCart() {
+  drawer.classList.remove('open');
+  overlay.classList.remove('open');
+  drawerStatus.textContent = 'closed';
+}
+document.getElementById('cartToggle').addEventListener('click', openCart);
+document.getElementById('closeDrawer').addEventListener('click', closeCart);
+overlay.addEventListener('click', closeCart);
+
+/* ============================================================
+   Search + category filtering (combine)
+============================================================ */
+let activeCategory = 'all';
+let searchTerm = '';
+
+const visibleCountAmazon   = document.getElementById('visibleCountAmazon');
+const noResultsMessage     = document.getElementById('noResultsMessage');
+const currentFilterDisplay = document.getElementById('currentFilterDisplay');
+const drawerStatus         = document.getElementById('drawerStatus');
+
+function applyFilters() {
+  const cards = document.querySelectorAll('#productGrid .card');
+  let visible = 0;
+  cards.forEach(card => {
+    const matchCat = activeCategory === 'all' || card.dataset.cat === activeCategory;
+    const matchName = card.dataset.name.includes(searchTerm);
+    const show = matchCat && matchName;
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  visibleCountAmazon.textContent = String(visible);
+  noResultsMessage.textContent   = visible === 0 ? 'No results' : '';
+}
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchTerm = e.target.value.trim().toLowerCase();
+  applyFilters();
+});
+
+// Direct per-button bindings so each filter is a recognised action.
+document.getElementById('filterAll').addEventListener('click', () => {
+  activeCategory = 'all';
+  currentFilterDisplay.textContent = 'all';
+  applyFilters();
+});
+document.getElementById('filterPower').addEventListener('click', () => {
+  activeCategory = 'Power';
+  currentFilterDisplay.textContent = 'Power';
+  applyFilters();
+});
+document.getElementById('filterAudio').addEventListener('click', () => {
+  activeCategory = 'Audio';
+  currentFilterDisplay.textContent = 'Audio';
+  applyFilters();
+});
+document.getElementById('filterCompute').addEventListener('click', () => {
+  activeCategory = 'Compute';
+  currentFilterDisplay.textContent = 'Compute';
+  applyFilters();
+});
+
+/* ---- Promo code apply: read input value, write to display + storage ---- */
+const promoCodeInput      = document.getElementById('promoCodeInput');
+const appliedPromoDisplay = document.getElementById('appliedPromoDisplay');
+
+document.getElementById('applyPromoBtn').addEventListener('click', () => {
+  appliedPromoDisplay.textContent = promoCodeInput.value;
+  localStorage.setItem('promo', JSON.stringify({ code: promoCodeInput.value }));
+});
+
+/* ---- Checkout: read live cart-count badge, persist + display ---- */
+const cartCount             = document.getElementById('cartCount');
+const checkoutSummaryDisplay = document.getElementById('checkoutSummaryDisplay');
+
+document.getElementById('checkoutBtn').addEventListener('click', () => {
+  const count = parseInt(cartCount.textContent, 10) || 0;
+  checkoutSummaryDisplay.textContent = String(count);
+  localStorage.setItem('checkout-summary', JSON.stringify({ count: count }));
+});
+
+/* ---- Boot: open DB, then read state from it ---- */
+openDB().then(render).catch(err => {
+  console.error('DB failed:', err);
+  alert('Could not open local database. Use a modern browser.');
+});
+</script>
+</body>
+</html>

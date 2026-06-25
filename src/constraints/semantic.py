@@ -110,13 +110,15 @@ def _check_condition_side(condition: Any, issues: list[SemanticIssue]) -> None:
 
 def _check_event_side(event: Any, issues: list[SemanticIssue]) -> None:
     """Rules 2 and 8."""
-    allowed = {"WriteEvent", "CallEvent", "CompoundEvent", "Guard", "PersistEvent"}
+    allowed = {"WriteEvent", "CallEvent", "CompoundEvent", "PersistEvent", "NotEvent"}
     if not _contains_any_type(event, allowed):
         issues.append(SemanticIssue(
             "E002",
             "Left side of '|' (event) must contain a write event w(...), "
-            "a system action call(...), a compound event, a guard, "
-            "or a persistence assertion persist(...)."))
+            "a system action call(...), a compound event, "
+            "or a persistence assertion persist(...). Bare guard "
+            "comparisons (e.g., r(x) > 0) are only valid on the right "
+            "side of '|' as condition modifiers."))
     if _contains_any_type(event, {"Action"}):
         issues.append(SemanticIssue(
             "E008",

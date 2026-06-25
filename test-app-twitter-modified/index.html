@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Chirp — micro-feed</title>
+<style>
+body { font: 14px/1.4 system-ui, sans-serif; max-width: 720px; margin: 0 auto; padding: 1rem; color: #222; }
+header { display: flex; align-items: center; gap: 1rem; border-bottom: 1px solid #eee; padding-bottom: .5rem; }
+header h1 { margin: 0; color: #1da1f2; }
+.notif { margin-left: auto; }
+.compose textarea, .profile textarea { width: 100%; box-sizing: border-box; padding: .5rem; }
+.tweet { border: 1px solid #eee; border-radius: 12px; padding: .8rem; margin: .8rem 0; }
+.tweet .actions { margin-top: .5rem; }
+.tweet button { margin-right: .3rem; }
+button { padding: .35rem .7rem; border-radius: 6px; border: 1px solid #ddd; background: white; cursor: pointer; }
+.primary { background: #1da1f2; color: white; border: none; }
+.posted { color: #0c8a3e; margin-left: .5rem; }
+section { margin-top: 1rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="logo">🐦 Chirp</h1>
+  <button id="bell-btn" class="notif">🔔 <span id="notification-count">3</span></button>
+  <span id="notification-panel-status">closed</span>
+  <button id="mark-all-read-btn">Mark all read</button>
+</header>
+
+<!-- Notifications panel (Row A / Row 3 fixture for the bell) -->
+<section class="notifications-panel">
+  <h2>Notifications</h2>
+  <ul id="notification-list">
+    <li>
+      Alice liked your tweet —
+      <span id="notification-1-status">unread</span>
+      <button id="mark-notification-1-read-btn">Mark read</button>
+    </li>
+    <li>
+      Bob retweeted you —
+      <span id="notification-2-status">unread</span>
+      <button id="mark-notification-2-read-btn">Mark read</button>
+    </li>
+    <li>
+      Carol mentioned you —
+      <span id="notification-3-status">unread</span>
+      <button id="mark-notification-3-read-btn">Mark read</button>
+    </li>
+  </ul>
+  <button id="clear-all-notifications-btn">Clear all</button>
+</section>
+
+<!-- Compose -->
+<section class="compose">
+  <h2>Compose</h2>
+  <textarea id="tweet-input" maxlength="280" rows="3" placeholder="What's happening?"></textarea>
+  <div>
+    <span><span id="char-count">280</span> characters left</span>
+    <button id="post-tweet-btn" class="primary">Post</button>
+    <span id="posted-banner" class="posted"></span>
+  </div>
+</section>
+
+<!-- Three fixed tweets, each with its own static ids -->
+<section class="feed">
+  <article class="tweet" id="tweet-1">
+    <p id="tweet-1-text">Just brewed the best espresso of my life ☕</p>
+    <div class="actions">
+      <button id="like-1-btn">♡</button>
+      <span>likes: <span id="like-1-count">0</span></span>
+      <button id="retweet-1-btn">↻</button>
+      <span>retweets: <span id="retweet-1-count">0</span></span>
+    </div>
+  </article>
+
+  <article class="tweet" id="tweet-2">
+    <p id="tweet-2-text">Hiking Mt. Rainier was unreal 🏔️</p>
+    <div class="actions">
+      <button id="like-2-btn">♡</button>
+      <span>likes: <span id="like-2-count">0</span></span>
+      <button id="retweet-2-btn">↻</button>
+      <span>retweets: <span id="retweet-2-count">0</span></span>
+    </div>
+  </article>
+
+  <article class="tweet" id="tweet-3">
+    <p id="tweet-3-text">Finally fixed that gnarly bug 🐛</p>
+    <div class="actions">
+      <button id="like-3-btn">♡</button>
+      <span>likes: <span id="like-3-count">0</span></span>
+      <button id="retweet-3-btn">↻</button>
+      <span>retweets: <span id="retweet-3-count">0</span></span>
+    </div>
+  </article>
+</section>
+
+<!-- Engagement totals (Row D — multi-source sum) -->
+<section class="engagement">
+  <h2>Engagement</h2>
+  <button id="refresh-engagement-btn">Refresh totals</button>
+  <p>Total likes across all tweets: <span id="total-engagement">0</span></p>
+</section>
+
+<!-- Search -->
+<section class="search">
+  <h2>Search</h2>
+  <input id="search-input" type="text" placeholder="Filter tweets…"/>
+  <button id="search-btn">Search</button>
+  <p>Matches: <span id="search-result-count">0</span></p>
+</section>
+
+<!-- Profile -->
+<section class="profile">
+  <h2>Profile</h2>
+  <textarea id="bio-input" rows="2" placeholder="Bio…"></textarea>
+  <button id="save-bio-btn">Save bio</button>
+  <p>Current bio: <span id="bio-display">—</span></p>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>

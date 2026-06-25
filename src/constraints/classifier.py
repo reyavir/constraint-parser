@@ -11,11 +11,13 @@ Priority order (first match wins):
   3. WriteEvent that carries a value_expr → VALUE or VALUE_WITH_DATAFLOW
        (see _classify_value_expr — depends on whether the value is a constant /
         external source or whether it derives from another UI element)
-  4. event is a Guard                     → GUARD
-  5. event is a CompoundEvent
+  4. event is a CompoundEvent
         op == "XOR"                       → EXCLUSIVE
         op == "AND" or "OR"               → COMPOUND
-  6. otherwise                            → PROBABILISTIC
+  5. otherwise                            → PROBABILISTIC
+
+Bare guard expressions on the event side (e.g. `P(r(qty) >= 1 | A(btn))`)
+are rejected during semantic analysis — they never reach this classifier.
 
 The classifier assumes the AST has already passed semantic analysis. Invalid
 shapes (e.g. Action on the event side) still classify to *something* — the
@@ -48,9 +50,6 @@ def classify(ast: dict) -> ConstraintType:
     # like the arithmetic VALUE_WITH_DATAFLOW form.
     if event.get("type") == "WriteEvent" and event.get("sources") is not None:
         return ConstraintType.VALUE_WITH_DATAFLOW
-
-    if event.get("type") == "Guard":
-        return ConstraintType.GUARD
 
     if event.get("type") == "CompoundEvent":
         return (ConstraintType.EXCLUSIVE

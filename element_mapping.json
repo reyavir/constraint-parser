@@ -1,328 +1,630 @@
 {
   "elements": {
-    "cv_0001": {
-      "label": "Shop",
-      "tag": "h1",
-      "kind": "component",
-      "file": "index.html",
-      "line": 11
-    },
-    "cart-summary": {
-      "label": "Cart: 0 items \u2014\n      Total: $",
+    "brand-name": {
+      "label": "Mailbox",
       "tag": "div",
       "kind": "component",
       "file": "index.html",
-      "line": 12
-    },
-    "cart-count": {
-      "label": "0",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 14
-    },
-    "cart-total": {
-      "label": "0.00",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 15
-    },
-    "product-1": {
-      "label": "Mechanical Keyboard $120.00 Qt",
-      "tag": "div",
-      "kind": "component",
-      "file": "index.html",
-      "line": 20
-    },
-    "product-name": {
-      "label": "Mechanical Keyboard",
-      "tag": "h2",
-      "kind": "component",
-      "file": "index.html",
-      "line": 21
-    },
-    "product-price": {
-      "label": "$120.00",
-      "tag": "p",
-      "kind": "component",
-      "file": "index.html",
-      "line": 22
-    },
-    "cv_0002": {
-      "label": "Qty",
-      "tag": "label",
-      "kind": "component",
-      "file": "index.html",
-      "line": 23
-    },
-    "cv_0005": {
-      "label": "\u2212 +",
-      "tag": "div",
-      "kind": "component",
-      "file": "index.html",
-      "line": 24
-    },
-    "qty-minus-btn": {
-      "label": "Decrease quantity",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 25
-    },
-    "qty-input": {
-      "label": "",
-      "tag": "input",
-      "kind": "action",
-      "file": "index.html",
-      "line": 26
-    },
-    "qty-plus-btn": {
-      "label": "Increase quantity",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 27
-    },
-    "add-to-cart-btn": {
-      "label": "Add to Cart",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 29
-    },
-    "favorite-btn": {
-      "label": "Favorite",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 30
-    },
-    "cv_0004": {
-      "label": "Favorites",
-      "tag": "h2",
-      "kind": "component",
-      "file": "index.html",
-      "line": 34
-    },
-    "favorite-count": {
-      "label": "0",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 34
-    },
-    "favorite-list": {
-      "label": "",
-      "tag": "div",
-      "kind": "component",
-      "file": "index.html",
-      "line": 35
-    },
-    "cv_0003": {
-      "label": "Your Cart",
-      "tag": "h2",
-      "kind": "component",
-      "file": "index.html",
-      "line": 39
-    },
-    "cart-list": {
-      "label": "",
-      "tag": "div",
-      "kind": "component",
-      "file": "index.html",
-      "line": 40
-    },
-    "checkout-btn": {
-      "label": "Checkout",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 41
-    },
-    "error-display": {
-      "label": "",
-      "tag": "div",
-      "kind": "component",
-      "file": "index.html",
-      "line": 42
-    },
-    "greet-btn": {
-      "label": "Greet",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 46
-    },
-    "status-display": {
-      "label": "(idle)",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 47
-    },
-    "mirror-input": {
-      "label": "",
-      "tag": "input",
-      "kind": "action",
-      "file": "index.html",
-      "line": 51
-    },
-    "mirror-display": {
-      "label": "(empty)",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 52
-    },
-    "name-input": {
-      "label": "",
-      "tag": "input",
-      "kind": "action",
-      "file": "index.html",
-      "line": 56
-    },
-    "submit-btn": {
-      "label": "Submit",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 57
-    },
-    "greeting-display": {
-      "label": "",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 58
-    },
-    "order-subtotal": {
-      "label": "120.00",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 62
-    },
-    "tax-input": {
-      "label": "",
-      "tag": "input",
-      "kind": "action",
-      "file": "index.html",
-      "line": 63
-    },
-    "tip-input": {
-      "label": "",
-      "tag": "input",
-      "kind": "action",
-      "file": "index.html",
-      "line": 64
-    },
-    "compute-btn": {
-      "label": "Compute",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 65
-    },
-    "reset-total-btn": {
-      "label": "Reset",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 66
-    },
-    "order-total": {
-      "label": "0.00",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 67
-    },
-    "tally-display": {
-      "label": "0.00",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 71
-    },
-    "charge-input": {
-      "label": "",
-      "tag": "input",
-      "kind": "action",
-      "file": "index.html",
-      "line": 72
-    },
-    "fee-input": {
-      "label": "",
-      "tag": "input",
-      "kind": "action",
-      "file": "index.html",
-      "line": 73
-    },
-    "add-tally-btn": {
-      "label": "Add charge",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 74
+      "line": 214
     },
     "search-input": {
       "label": "",
       "tag": "input",
       "kind": "action",
       "file": "index.html",
-      "line": 78
+      "line": 216
     },
-    "search-btn": {
-      "label": "Search",
+    "search-clear-btn": {
+      "label": "Clear",
       "tag": "button",
       "kind": "action",
       "file": "index.html",
-      "line": 79
+      "line": 217
     },
-    "search-results": {
-      "label": "",
+    "search-status": {
+      "label": "all",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 218
+    },
+    "total-unread-count": {
+      "label": "3",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 221
+    },
+    "mark-all-read-btn": {
+      "label": "Mark all read",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 222
+    },
+    "compose-btn": {
+      "label": "+ Compose",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 223
+    },
+    "folder-inbox-row": {
+      "label": "\ud83d\udce5 Inbox 3",
       "tag": "div",
       "kind": "component",
       "file": "index.html",
-      "line": 80
+      "line": 232
+    },
+    "folder-inbox-btn": {
+      "label": "Inbox",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 234
+    },
+    "folder-inbox-count": {
+      "label": "3",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 235
+    },
+    "folder-sent-row": {
+      "label": "\ud83d\udce4 Sent 12",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 237
+    },
+    "folder-sent-btn": {
+      "label": "Sent",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 239
+    },
+    "folder-sent-count": {
+      "label": "12",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 240
+    },
+    "folder-drafts-row": {
+      "label": "\ud83d\udcdd Drafts 1",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 242
+    },
+    "folder-drafts-btn": {
+      "label": "Drafts",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 244
+    },
+    "folder-drafts-count": {
+      "label": "1",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 245
+    },
+    "folder-spam-row": {
+      "label": "\u26a0 Spam 0",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 247
+    },
+    "folder-spam-btn": {
+      "label": "Spam",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 249
+    },
+    "folder-spam-count": {
+      "label": "0",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 250
+    },
+    "folder-trash-row": {
+      "label": "\ud83d\uddd1 Trash 2",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 252
+    },
+    "folder-trash-btn": {
+      "label": "Trash",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 254
+    },
+    "folder-trash-count": {
+      "label": "2",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 255
+    },
+    "label-work-btn": {
+      "label": "Work",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 262
+    },
+    "label-work-count": {
+      "label": "5",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 263
+    },
+    "label-personal-btn": {
+      "label": "Personal",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 267
+    },
+    "label-personal-count": {
+      "label": "2",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 268
+    },
+    "label-important-btn": {
+      "label": "Important",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 272
+    },
+    "label-important-count": {
+      "label": "1",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 273
+    },
+    "active-folder-name": {
+      "label": "Inbox",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 280
+    },
+    "active-label-name": {
+      "label": "none",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 281
+    },
+    "msg-1-row": {
+      "label": "\u2606 Open Alice Project kickoff \u2014",
+      "tag": "li",
+      "kind": "component",
+      "file": "index.html",
+      "line": 285
+    },
+    "star-1-btn": {
+      "label": "\u2606",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 286
+    },
+    "msg-1-pick": {
+      "label": "Open",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 287
+    },
+    "msg-1-sender": {
+      "label": "Alice",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 288
+    },
+    "msg-1-subject": {
+      "label": "Project kickoff",
+      "tag": "strong",
+      "kind": "component",
+      "file": "index.html",
+      "line": 290
+    },
+    "msg-1-snippet": {
+      "label": "\u2014 ready to start Monday",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 291
+    },
+    "archive-1-btn": {
+      "label": "Archive",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 294
+    },
+    "mark-read-1-btn": {
+      "label": "Mark read",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 295
+    },
+    "delete-1-btn": {
+      "label": "Delete",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 296
+    },
+    "msg-2-row": {
+      "label": "\u2606 Open Bob Lunch tomorrow? \u2014 L",
+      "tag": "li",
+      "kind": "component",
+      "file": "index.html",
+      "line": 299
+    },
+    "star-2-btn": {
+      "label": "\u2606",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 300
+    },
+    "msg-2-pick": {
+      "label": "Open",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 301
+    },
+    "msg-2-sender": {
+      "label": "Bob",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 302
+    },
+    "msg-2-subject": {
+      "label": "Lunch tomorrow?",
+      "tag": "strong",
+      "kind": "component",
+      "file": "index.html",
+      "line": 304
+    },
+    "msg-2-snippet": {
+      "label": "\u2014 Le Pain at noon",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 305
+    },
+    "archive-2-btn": {
+      "label": "Archive",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 308
+    },
+    "mark-read-2-btn": {
+      "label": "Mark read",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 309
+    },
+    "delete-2-btn": {
+      "label": "Delete",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 310
+    },
+    "msg-3-row": {
+      "label": "\u2606 Open Carol Receipts for Q3 \u2014",
+      "tag": "li",
+      "kind": "component",
+      "file": "index.html",
+      "line": 313
+    },
+    "star-3-btn": {
+      "label": "\u2606",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 314
+    },
+    "msg-3-pick": {
+      "label": "Open",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 315
+    },
+    "msg-3-sender": {
+      "label": "Carol",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 316
+    },
+    "msg-3-subject": {
+      "label": "Receipts for Q3",
+      "tag": "strong",
+      "kind": "component",
+      "file": "index.html",
+      "line": 318
+    },
+    "msg-3-snippet": {
+      "label": "\u2014 forwarded from finance",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 319
+    },
+    "archive-3-btn": {
+      "label": "Archive",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 322
+    },
+    "mark-read-3-btn": {
+      "label": "Mark read",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 323
+    },
+    "delete-3-btn": {
+      "label": "Delete",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 324
+    },
+    "selected-subject": {
+      "label": "(no message)",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 330
+    },
+    "selected-sender": {
+      "label": "\u2014",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 331
+    },
+    "selected-id": {
+      "label": "none",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 331
+    },
+    "selected-body": {
+      "label": "Pick a message above to view i",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 332
+    },
+    "reply-btn": {
+      "label": "Reply",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 334
+    },
+    "forward-btn": {
+      "label": "Forward",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 335
+    },
+    "mark-spam-btn": {
+      "label": "Report spam",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 336
+    },
+    "compose-to": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
+      "line": 344
+    },
+    "compose-subject": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
+      "line": 348
+    },
+    "compose-body": {
+      "label": "",
+      "tag": "textarea",
+      "kind": "action",
+      "file": "index.html",
+      "line": 352
+    },
+    "send-btn": {
+      "label": "Send",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 355
+    },
+    "save-draft-btn": {
+      "label": "Save draft",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 356
+    },
+    "discard-btn": {
+      "label": "Discard",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 357
+    },
+    "compose-status": {
+      "label": "idle",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 358
     }
   },
-  "apis": {
-    "cartApi": {
-      "endpoint": "/api/cart",
-      "method": "POST",
-      "file": "cart.js",
-      "line": 18
-    },
-    "checkoutApi": {
-      "endpoint": "/api/checkout",
-      "method": "POST",
-      "file": "cart.js",
-      "line": 51
-    },
-    "analyticsApi": {
-      "endpoint": "/api/analytics",
-      "method": "POST",
-      "file": "cart.js",
-      "line": 81
-    },
-    "searchApi": {
-      "endpoint": "/api/search",
-      "method": "GET",
-      "file": "search.js",
-      "line": 12
-    }
-  },
+  "apis": {},
   "storage": {
-    "lastEventStorage": {
+    "sentCountStorage": {
       "area": "localStorage",
-      "key": "last_event",
+      "key": "sent-count",
+      "ops": [
+        "setItem",
+        "getItem"
+      ],
+      "file": "app.js",
+      "line": 59
+    },
+    "lastSentStorage": {
+      "area": "localStorage",
+      "key": "last-sent",
       "ops": [
         "setItem"
       ],
-      "file": "cart.js",
-      "line": 79
+      "file": "app.js",
+      "line": 60
+    },
+    "draftsCountStorage": {
+      "area": "localStorage",
+      "key": "drafts-count",
+      "ops": [
+        "setItem",
+        "getItem"
+      ],
+      "file": "app.js",
+      "line": 74
+    },
+    "composeDraftStorage": {
+      "area": "localStorage",
+      "key": "compose-draft",
+      "ops": [
+        "setItem",
+        "getItem"
+      ],
+      "file": "app.js",
+      "line": 75
+    },
+    "activeFolderStorage": {
+      "area": "localStorage",
+      "key": "active-folder",
+      "ops": [
+        "setItem",
+        "getItem"
+      ],
+      "file": "app.js",
+      "line": 105
+    },
+    "activeLabelStorage": {
+      "area": "localStorage",
+      "key": "active-label",
+      "ops": [
+        "setItem"
+      ],
+      "file": "app.js",
+      "line": 127
+    },
+    "selectedIdStorage": {
+      "area": "localStorage",
+      "key": "selected-id",
+      "ops": [
+        "setItem"
+      ],
+      "file": "app.js",
+      "line": 144
+    },
+    "starredStateStorage": {
+      "area": "localStorage",
+      "key": "starred-state",
+      "ops": [
+        "setItem"
+      ],
+      "file": "app.js",
+      "line": 165
+    },
+    "inboxCountStorage": {
+      "area": "localStorage",
+      "key": "inbox-count",
+      "ops": [
+        "setItem",
+        "getItem"
+      ],
+      "file": "app.js",
+      "line": 182
+    },
+    "threadReadStateStorage": {
+      "area": "localStorage",
+      "key": "thread-read-state",
+      "ops": [
+        "setItem"
+      ],
+      "file": "app.js",
+      "line": 200
+    },
+    "readStateStorage": {
+      "area": "localStorage",
+      "key": "read-state",
+      "ops": [
+        "setItem",
+        "getItem"
+      ],
+      "file": "app.js",
+      "line": 205
+    },
+    "trashCountStorage": {
+      "area": "localStorage",
+      "key": "trash-count",
+      "ops": [
+        "setItem",
+        "getItem"
+      ],
+      "file": "app.js",
+      "line": 217
+    },
+    "spamCountStorage": {
+      "area": "localStorage",
+      "key": "spam-count",
+      "ops": [
+        "setItem",
+        "getItem"
+      ],
+      "file": "app.js",
+      "line": 258
     }
-  }
+  },
+  "selectors": {}
 }

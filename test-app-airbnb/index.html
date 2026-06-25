@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Stayz — sample stays</title>
+<link href="style.css" rel="stylesheet"/>
+</head>
+<body>
+
+<header class="topbar">
+  <span class="logo" id="logo">🏠 Stayz</span>
+  <div class="search-row">
+    <input id="search-input" type="text" placeholder="Where to?" autocomplete="off"/>
+    <input id="guests-input" type="number" min="1" max="8" value="2"/>
+    <button id="search-btn">Search</button>
+  </div>
+  <span class="fav-badge">❤ <span id="fav-count">0</span></span>
+</header>
+
+<main>
+
+  <!-- Price-band filters -->
+  <section class="filters">
+    <span class="filter-label">Price:</span>
+    <button id="filter-any"   class="filter-btn active">Any</button>
+    <button id="filter-low"   class="filter-btn">Under $150</button>
+    <button id="filter-mid"   class="filter-btn">$150 – $250</button>
+    <button id="filter-high"  class="filter-btn">$250 +</button>
+    <span class="filter-count">Showing <span id="visible-count">3</span></span>
+  </section>
+
+  <!-- Listings — three fixed cards, each with a static id and direct handlers -->
+  <section class="listings">
+
+    <article class="listing-card" id="listing-1">
+      <div class="listing-hero">🏖️</div>
+      <div class="listing-body">
+        <h3 id="listing-1-name">Beach bungalow</h3>
+        <p id="listing-1-where">Tulum, Mexico</p>
+        <p id="listing-1-price">$120 / night</p>
+        <button id="fav-1" class="fav-btn">♡ Favorite</button>
+        <button id="book-1" class="book-btn">Book</button>
+      </div>
+    </article>
+
+    <article class="listing-card" id="listing-2">
+      <div class="listing-hero">🏙️</div>
+      <div class="listing-body">
+        <h3 id="listing-2-name">City loft</h3>
+        <p id="listing-2-where">Lisbon, Portugal</p>
+        <p id="listing-2-price">$210 / night</p>
+        <button id="fav-2" class="fav-btn">♡ Favorite</button>
+        <button id="book-2" class="book-btn">Book</button>
+      </div>
+    </article>
+
+    <article class="listing-card" id="listing-3">
+      <div class="listing-hero">🌲</div>
+      <div class="listing-body">
+        <h3 id="listing-3-name">Forest cabin</h3>
+        <p id="listing-3-where">Kyoto, Japan</p>
+        <p id="listing-3-price">$310 / night</p>
+        <button id="fav-3" class="fav-btn">♡ Favorite</button>
+        <button id="book-3" class="book-btn">Book</button>
+      </div>
+    </article>
+
+  </section>
+
+  <!-- Last-booking display -->
+  <section class="last-booking">
+    <h2>Last booking</h2>
+    <p>Listing: <span id="last-booking-name">—</span></p>
+    <p>Guests:  <span id="last-booking-guests">—</span></p>
+    <p>Total:   $<span id="last-booking-total">0</span></p>
+    <button id="reset-booking-btn">Reset booking</button>
+  </section>
+
+  <!-- Guest stepper (Row A self-increment fixture):
+       guest-plus and guest-minus update guests-input by ±1. -->
+  <section class="guest-stepper">
+    <h2>Guests</h2>
+    <button id="guest-minus-btn">−</button>
+    <span class="guest-value">Current: <span>see header</span></span>
+    <button id="guest-plus-btn">+</button>
+  </section>
+
+  <!-- Fees panel (Row D multi-source sum fixture):
+       compute-fees-btn sums base + cleaning + service into total-with-fees. -->
+  <section class="fees-panel">
+    <h2>Calculate total with fees</h2>
+    <label>Base / night $<input id="base-price-input" type="number" value="120"/></label>
+    <label>Cleaning $<input id="cleaning-input" type="number" value="40"/></label>
+    <label>Service $<input id="service-input" type="number" value="25"/></label>
+    <button id="compute-fees-btn">Compute total</button>
+    <p>Total with fees: $<span id="total-with-fees">0</span></p>
+  </section>
+
+  <!-- Review form (Row 5 guarded-write fixture):
+       submit-review-btn writes review-thanks only when rating-input > 0. -->
+  <section class="review-form">
+    <h2>Leave a review</h2>
+    <label>Rating (1–5): <input id="rating-input" type="number" min="0" max="5" value="0"/></label>
+    <button id="submit-review-btn">Submit review</button>
+    <span id="review-thanks"></span>
+  </section>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -232,29 +232,17 @@ predicate writesElement(string id, AssignExpr write) {
 }
 
 /**
- * Innerhtml-assignment-as-creation of a child element with `id="X"`.
- * Same shape and limitations as in path_exists.ql.
- */
-bindingset[id]
-predicate isCreatedInInnerHTML(string id, AssignExpr write) {
-  exists(PropAccess lhs |
-    lhs = write.getLhs() and
-    lhs.getPropertyName() = ["innerHTML", "outerHTML"]
-  ) and
-  write.getRhs().toString().regexpMatch(
-    ".*\\bid\\s*=\\s*[\"']" + id + "[\"'].*"
-  )
-}
-
-/**
  * DOM-mutation method calls that change what the element renders.
- * Treated as writes alongside `el.prop = value` assignments.
+ * Treated as writes alongside `el.prop = value` assignments. Methods
+ * that *parse HTML strings* into new DOM nodes (insertAdjacentHTML,
+ * innerHTML-as-creation) are deliberately excluded — they cannot
+ * operate on a static-HTML app's existing element set.
  */
 predicate writesElementVia(string id, MethodCallExpr call) {
   call.getMethodName() = [
     "appendChild", "append", "prepend",
     "insertBefore", "replaceChild", "replaceChildren",
-    "insertAdjacentHTML", "insertAdjacentElement",
+    "insertAdjacentElement",
     "removeChild", "remove",
     "setAttribute"
   ] and
@@ -289,13 +277,6 @@ predicate writingBlock(Function fn, ReachableBasicBlock bb) {
     writesElementVia("__TARGET_ID__", c) and
     c.getEnclosingFunction() = fn and
     s = c.getEnclosingStmt() and
-    bb.getANode() = s.getFirstControlFlowNode()
-  )
-  or
-  exists(AssignExpr w, Stmt s |
-    isCreatedInInnerHTML("__TARGET_ID__", w) and
-    w.getEnclosingFunction() = fn and
-    s = w.getEnclosingStmt() and
     bb.getANode() = s.getFirstControlFlowNode()
   )
   or

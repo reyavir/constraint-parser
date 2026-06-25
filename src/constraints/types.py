@@ -62,7 +62,4 @@ class ConstraintType(Enum):
     API_CALL            = auto()
     COMPOUND            = auto()
     EXCLUSIVE           = auto()
-    ORDER               = auto()
-    GUARD               = auto()
-    STATIC              = auto()
     PERSIST             = auto()

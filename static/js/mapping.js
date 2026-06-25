@@ -76,6 +76,60 @@ scanBtn.addEventListener("click", async () => {
 });
 
 
+/* ── Build CodeQL database ───────────────────────────────────────────── */
+const mappingDbSrcInput   = document.getElementById("mapping-db-src-input");
+const mappingDbPathInput  = document.getElementById("mapping-db-path-input");
+const mappingBuildDbBtn   = document.getElementById("mapping-build-db-btn");
+const mappingBuildDbResult = document.getElementById("mapping-build-db-result");
+
+mappingBuildDbBtn?.addEventListener("click", async () => {
+  const source_dir = mappingDbSrcInput.value.trim();
+  const db_path    = mappingDbPathInput.value.trim();
+  if (!source_dir) return;
+
+  mappingBuildDbBtn.disabled  = true;
+  mappingBuildDbBtn.innerHTML = `<span class="spinner"></span>Building…`;
+  mappingBuildDbResult.classList.add("hidden");
+
+  try {
+    const res  = await fetch("/codeql/rebuild", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ source_dir, db_path }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      const appDir = data.app_dir
+        ? ` Now serving <code>${escapeHtml(data.app_dir)}</code> at <code>/run/</code>.`
+        : "";
+      mappingBuildDbResult.className = "inject-result inject-pass";
+      mappingBuildDbResult.innerHTML =
+        `<strong>CodeQL DB built</strong> at <code>${escapeHtml(data.db_path)}</code>.${appDir}`;
+      // Tell the constraint builder overlay (and any other listeners) to
+      // refresh, so the lanes/dropdowns pick up the new mapping.
+      window.dispatchEvent(new CustomEvent("cv:app-changed", {
+        detail: { app_dir: data.app_dir, db_path: data.db_path },
+      }));
+    } else {
+      mappingBuildDbResult.className = "inject-result inject-fail";
+      mappingBuildDbResult.innerHTML =
+        `<strong>Build failed:</strong> ${escapeHtml(data.error || "unknown")}`;
+    }
+    mappingBuildDbResult.classList.remove("hidden");
+
+  } catch {
+    mappingBuildDbResult.className = "inject-result inject-fail";
+    mappingBuildDbResult.innerHTML =
+      `<strong>Network error</strong> — is the server running?`;
+    mappingBuildDbResult.classList.remove("hidden");
+  } finally {
+    mappingBuildDbBtn.disabled  = false;
+    mappingBuildDbBtn.innerHTML = "Build / rebuild DB";
+  }
+});
+
+
 /* ── Inject IDs into source ──────────────────────────────────────────── */
 const sourceInput   = document.getElementById("source-path-input");
 const injectBtn     = document.getElementById("inject-btn");

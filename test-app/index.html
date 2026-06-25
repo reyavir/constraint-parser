@@ -42,36 +42,86 @@
 <div id="error-display"></div>
 </div>
 <!-- Delegating demo (for inter-procedural all_paths_write) -->
-<div class="delegate-panel">
+<div class="delegate-panel" data-cv-label="Greet (idle)" id="cv_0009">
 <button data-cv-label="Greet" id="greet-btn" type="button">Greet</button>
 <span data-cv-label="(idle)" id="status-display">(idle)</span>
 </div>
 <!-- Row 2 fixture: typed value mirrors into a display unconditionally -->
-<div class="mirror-panel">
+<div class="mirror-panel" data-cv-label="(empty)" id="cv_0010">
 <input id="mirror-input" placeholder="type — mirror updates instantly" type="text"/>
 <span data-cv-label="(empty)" id="mirror-display">(empty)</span>
 </div>
 <!-- Row 5 fixture: greeting only appears when the name field reads a specific value -->
-<div class="validate-panel">
+<div class="validate-panel" data-cv-label="Submit" id="cv_0011">
 <input id="name-input" placeholder='type "alice"' type="text"/>
 <button data-cv-label="Submit" id="submit-btn" type="button">Submit</button>
 <span data-cv-label="" id="greeting-display"></span>
 </div>
 <!-- Order total fixture: constant-literal write (reset) + multi-source sum (compute) -->
 <div class="order-total-panel">
-<div>Subtotal: $<span data-cv-label="120.00" id="order-subtotal">120.00</span></div>
-<label>Tax: $<input id="tax-input" type="text" value="9.60"/></label>
-<label>Tip: $<input id="tip-input" type="text" value="20.00"/></label>
+<div data-cv-label="Subtotal: $ 120.00" id="cv_0012">Subtotal: $<span data-cv-label="120.00" id="order-subtotal">120.00</span></div>
+<label data-cv-label="Tax: $" id="cv_0013">Tax: $<input id="tax-input" type="text" value="9.60"/></label>
+<label data-cv-label="Tip: $" id="cv_0014">Tip: $<input id="tip-input" type="text" value="20.00"/></label>
 <button data-cv-label="Compute" id="compute-btn" type="button">Compute total</button>
 <button data-cv-label="Reset" id="reset-total-btn" type="button">Reset</button>
-<div>Total: $<span data-cv-label="0.00" id="order-total">0.00</span></div>
+<div data-cv-label="Total: $ 0.00" id="cv_0015">Total: $<span data-cv-label="0.00" id="order-total">0.00</span></div>
 </div>
 <!-- Running-tally fixture: target reads itself + 2 other components -->
 <div class="tally-panel">
-<div>Running total: $<span data-cv-label="0.00" id="tally-display">0.00</span></div>
-<label>Charge: $<input id="charge-input" type="text" value="15.00"/></label>
-<label>Fee: $<input id="fee-input" type="text" value="2.50"/></label>
+<div data-cv-label="Running total: $ 0.00" id="cv_0016">Running total: $<span data-cv-label="0.00" id="tally-display">0.00</span></div>
+<label data-cv-label="Charge: $" id="cv_0017">Charge: $<input id="charge-input" type="text" value="15.00"/></label>
+<label data-cv-label="Fee: $" id="cv_0018">Fee: $<input id="fee-input" type="text" value="2.50"/></label>
 <button data-cv-label="Add charge" id="add-tally-btn" type="button">Add charge</button>
+</div>
+<!-- Inventory fixture: items live in localStorage["inventory"] and the
+     list is rendered from there. Reset button re-seeds the store. -->
+<div class="inventory-panel">
+<h2 data-cv-label="Inventory" id="cv_0006">Inventory</h2>
+<div id="inventory-list"></div>
+<button data-cv-label="Reset inventory" id="reset-inventory-btn" type="button">Reset inventory</button>
+<span data-cv-label="" id="inventory-status"></span>
+</div>
+<!-- Settings fixture: two buttons against the same storage key.
+     - save-settings-btn writes JSON containing nickname-input.value
+       → Rule 3 PASS for r(nickname-input).
+     - reset-settings-btn writes a hardcoded constant
+       → Rule 3 FAIL if the constraint claims it derives from input. -->
+<div class="settings-panel" data-cv-label="Settings Nickname Save setting" id="cv_0019">
+<h2 data-cv-label="Settings" id="cv_0007">Settings</h2>
+<label data-cv-label="Nickname" for="nickname-input" id="cv_0008">Nickname</label>
+<input id="nickname-input" placeholder="your nickname" type="text"/>
+<button data-cv-label="Save settings" id="save-settings-btn" type="button">Save settings</button>
+<button data-cv-label="Reset to defaults" id="reset-settings-btn" type="button">Reset to defaults</button>
+</div>
+<!-- Notice fixture: click the button → renders a notice div via
+     `notice-host.innerHTML = \`<div id="notice-msg">…</div>\``.
+     Exercises the id-in-template-literal detection: a constraint
+     P(w(notice-msg) | A(show-notice-btn)) = 1 should PASS even
+     though `notice-msg` is only born inside a template literal. -->
+<div class="notice-panel">
+<button data-cv-label="Show notice" id="show-notice-btn" type="button">Show notice</button>
+<div id="notice-host"></div>
+</div>
+<!-- Body-delegation fixture (phase 3c). Two static buttons whose clicks
+     are dispatched by a single document-level listener filtering on
+     e.target.dataset.del — a constraint
+     P(w(del-count) | A(del-btn-a)) = 1 should now PASS via the
+     registeredViaBodyDelegation predicate. -->
+<div class="del-panel">
+<button id="del-btn-a" data-del="a">Delegated A</button>
+<button id="del-btn-b" data-del="b">Delegated B</button>
+<span id="del-count">0</span>
+</div>
+<!-- Class-binding fixture for selector-action constraints. The render
+     button populates a list with cards each bearing class="tile". After
+     rendering, `querySelectorAll('.tile').forEach(el =>
+     el.addEventListener('click', …))` binds a click handler on each
+     tile that bumps the tile-click-count. A constraint
+     P(w(tile-click-count) | A(.tile)) = 1 should PASS. -->
+<div class="tile-panel">
+<button data-cv-label="Render tiles" id="render-tiles-btn" type="button">Render tiles</button>
+<span data-cv-label="0" id="tile-click-count">0</span>
+<div id="tile-host"></div>
 </div>
 <!-- Search -->
 <div class="search-panel">
@@ -83,5 +133,10 @@
 <script src="cart.js"></script>
 <script src="search.js"></script>
 <script src="local.js"></script>
+<script src="inventory.js"></script>
+<script src="settings.js"></script>
+<script src="notice.js"></script>
+<script src="tiles.js"></script>
+<script src="delegated.js"></script>
 </body>
 </html>

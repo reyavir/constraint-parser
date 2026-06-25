@@ -124,13 +124,33 @@ _PRIMITIVES_FOR_TYPE: dict[ConstraintType, list[str]] = {
     ConstraintType.COUNTERFACTUAL:       ["no_other_handlers"],
 }
 
+# For `P=0` ("the event never matches"), we run only the SHARPEST primitive
+# that captures the full event predicate, with its verdict inverted. Running
+# the regular =1 conjunction is wrong for two reasons:
+#   - Several primitives have no inversion code and demand rows > 0,
+#     which is exactly the thing =0 says shouldn't exist.
+#   - For valued writes, the broader primitives (path_exists) over-flag.
+#     Example: `P(w(t, "0") | A) = 0` and A writes t = 5 — the constraint
+#     is satisfied (no write of literal 0 occurred) but path_exists sees
+#     the write of 5 and, inverted, flags. The sharpest primitive
+#     (literal_value) correctly returns 0 rows and, inverted, passes.
+# Guard + =0 is handled separately in `_evaluate_event_leaf` — guarded_write
+# alone is the sharpest check there.
+# Only the per-leaf constraint types appear here. COMPOUND/EXCLUSIVE/
+# COUNTERFACTUAL are top-level classifications that are either routed away
+# before the walker (counterfactual → no_other_handlers) or have their
+# leaves reclassified in `_evaluate_event_leaf` (compound/exclusive).
+_NEGATION_PRIMITIVES_FOR_TYPE: dict[ConstraintType, list[str]] = {
+    ConstraintType.PROBABILISTIC:        ["path_exists"],
+    ConstraintType.VALUE:                ["literal_value"],
+    ConstraintType.VALUE_WITH_DATAFLOW:  ["source_set", "self_increment",
+                                          "api_result_taint"],
+}
+
 # `guarded_write` (Row 5) is orthogonal to constraint type — it runs
 # whenever the condition carries a guard, e.g. A(ei), r(ei) = v.
 
-_SKIP_TYPES = {
-    ConstraintType.GUARD,
-    ConstraintType.ORDER,
-}
+_SKIP_TYPES = set()
 
 
 # ---------------------------------------------------------------------------
@@ -241,36 +261,238 @@ def stage1_check(ast: dict, db_path: str = "./codeql-db") -> dict:
             }],
         }
 
-    checks: list[dict] = []
-    for primitive in primitives:
-        runner = _PRIMITIVE_RUNNERS[primitive]
-        for tid in targets:
-            check = runner(ast=ast,
-                           action_id=action_id,
-                           target_id=tid,
-                           storage_key=_storage_key_for(tid, mapping),
-                           dataset_keys=dataset_keys,
-                           db_path=db_path)
-            if check is not None:
-                checks.append(check)
+    # Operator-aware evaluation: walk the event AST and combine per-leaf
+    # results according to AND / OR / XOR semantics. For a single-atom
+    # event side (no CompoundEvent), this collapses to the same behaviour
+    # as the old conjunctive loop — every primitive must pass for the
+    # one leaf. Guard checks (when the condition carries a guard) are
+    # threaded INTO the walker so each leaf carries its own guard verdict;
+    # this lets the operator semantics control guard aggregation too
+    # (e.g. OR passes if at least one leaf's write AND guard both pass).
+    event_node = ast.get("event") or {}
+    has_guard  = _condition_has_guard(ast)
+    tree_result = _evaluate_event_subtree(
+        event_node, ast=ast, action_id=action_id,
+        mapping=mapping, dataset_keys=dataset_keys, db_path=db_path,
+        has_guard=has_guard)
+    checks: list[dict] = list(tree_result["checks"])
 
-    # Row 5 — orthogonal to type: if the condition carries a guard
-    # (e.g. A(ei), r(ei) = v), also verify the write is structurally
-    # gated by an if-statement that reads the action element.
-    if _condition_has_guard(ast):
-        for tid in targets:
-            checks.append(_run_guarded_write(ast=ast,
-                                             action_id=action_id,
-                                             target_id=tid,
-                                             storage_key=_storage_key_for(tid, mapping),
-                                             dataset_keys=dataset_keys,
-                                             db_path=db_path))
-
+    if tree_result["passed"]:
+        return {"result": "PASSED", "reason": None, "checks": checks}
     failed = [c for c in checks if not c["passed"]]
-    if failed:
-        summary = "; ".join(c["reason"] for c in failed)
-        return {"result": "FLAGGED", "reason": summary, "checks": checks}
-    return {"result": "PASSED", "reason": None, "checks": checks}
+    summary = "; ".join(c["reason"] for c in failed if c.get("reason"))
+    return {"result": "FLAGGED", "reason": summary, "checks": checks}
+
+
+def _evaluate_event_subtree(node: dict, *, ast: dict, action_id: str,
+                             mapping: dict, dataset_keys: str,
+                             db_path: str, has_guard: bool = False) -> dict:
+    """
+    Recursively evaluate an event-side subtree, respecting the AST's
+    logical operator structure. Returns {"passed": bool, "checks": [...]}.
+
+    For a CompoundEvent node, recurses on each operand and combines
+    children's passed-verdicts according to the operator:
+        AND   — every child must pass
+        OR    — at least one child must pass
+        XOR   — exactly one child must pass
+
+    For a leaf event (WriteEvent, CallEvent, PersistEvent), runs the
+    appropriate primitive set for that leaf's shape and aggregates
+    conjunctively across primitives (every primitive must pass for the
+    leaf to pass).
+
+    The recursive verdict respects nested compounds — e.g.
+    `w(a) AND (w(b) OR w(c))` correctly requires `a` and (`b` or `c`).
+    """
+    ntype = node.get("type")
+
+    if ntype == "NotEvent":
+        child = node.get("child")
+        if not isinstance(child, dict):
+            return {"passed": False, "checks": []}
+        child_result = _evaluate_event_subtree(
+            child, ast=ast, action_id=action_id,
+            mapping=mapping, dataset_keys=dataset_keys, db_path=db_path,
+            has_guard=has_guard)
+        return {"passed": not child_result["passed"], "checks": child_result["checks"]}
+
+    if ntype == "CompoundEvent":
+        op = node.get("op", "AND")
+        sub_results: list[dict] = []
+        for child_key in ("left", "right"):
+            child = node.get(child_key)
+            if not isinstance(child, dict):
+                continue
+            sub_results.append(_evaluate_event_subtree(
+                child, ast=ast, action_id=action_id,
+                mapping=mapping, dataset_keys=dataset_keys, db_path=db_path,
+                has_guard=has_guard))
+        all_checks: list[dict] = []
+        for r in sub_results:
+            all_checks.extend(r["checks"])
+        if op == "AND":
+            passed = all(r["passed"] for r in sub_results) if sub_results else True
+        elif op == "OR":
+            passed = any(r["passed"] for r in sub_results) if sub_results else False
+        elif op == "XOR":
+            passed = sum(1 for r in sub_results if r["passed"]) == 1
+        else:
+            passed = all(r["passed"] for r in sub_results)
+        return {"passed": passed, "checks": all_checks}
+
+    # Leaf event — classify its shape, run its primitive set.
+    return _evaluate_event_leaf(
+        node, ast=ast, action_id=action_id,
+        mapping=mapping, dataset_keys=dataset_keys, db_path=db_path,
+        has_guard=has_guard)
+
+
+def _evaluate_event_leaf(leaf: dict, *, ast: dict, action_id: str,
+                          mapping: dict, dataset_keys: str,
+                          db_path: str, has_guard: bool = False) -> dict:
+    """
+    Evaluate a single atomic event leaf (WriteEvent / CallEvent /
+    PersistEvent / Guard) and return {"passed", "checks"}. Conjunctive
+    across primitives — every primitive that applies to the leaf must
+    pass for the leaf to pass.
+    """
+    ntype = leaf.get("type")
+
+    # CallEvent leaf — route to the same machinery as a top-level call
+    # constraint, but with a per-leaf AST so the runner sees just this
+    # CallEvent as ast.event.
+    if ntype == "CallEvent":
+        leaf_ast = dict(ast)
+        leaf_ast["event"] = leaf
+        leaf_result = _run_api_call_check(leaf_ast, db_path)
+        leaf_checks = list(leaf_result.get("checks") or [])
+        passed = leaf_result.get("result") == "PASSED"
+        if has_guard:
+            # No DOM target for the guard check; guards on calls aren't
+            # meaningful structurally, so skip the guard layer here.
+            pass
+        return {"passed": passed, "checks": leaf_checks}
+
+    # PersistEvent leaf — route to the persist composite (save + restore).
+    if ntype == "PersistEvent":
+        leaf_ast = dict(ast)
+        leaf_ast["event"] = leaf
+        leaf_result = _run_persist_check(leaf_ast, db_path)
+        leaf_checks = list(leaf_result.get("checks") or [])
+        passed = leaf_result.get("result") == "PASSED"
+        return {"passed": passed, "checks": leaf_checks}
+
+    if ntype != "WriteEvent":
+        # Unknown leaf type — treat as failing with a clear message.
+        return {
+            "passed": False,
+            "checks": [{
+                "name":     "compound_leaf_unknown",
+                "action":   action_id,
+                "target":   None,
+                "passed":   False,
+                "evidence": [],
+                "reason":   f"unsupported leaf node type {ntype!r} inside event tree.",
+                "query":    "",
+            }],
+        }
+
+    target = leaf.get("element")
+    if not isinstance(target, str):
+        return {
+            "passed": False,
+            "checks": [{
+                "name":     "compound_leaf_invalid",
+                "action":   action_id,
+                "target":   None,
+                "passed":   False,
+                "evidence": [],
+                "reason":   "WriteEvent leaf missing target element id.",
+                "query":    "",
+            }],
+        }
+    storage_key = _storage_key_for(target, mapping)
+
+    # Decide the leaf's primitive set from its shape. Mirrors classify():
+    #   bare w(t)                                 → PROBABILISTIC primitives
+    #   w(t, literal)                             → VALUE primitives
+    #   w(t, expr with reads) / w(t, sources={…}) → VALUE_WITH_DATAFLOW primitives
+    if leaf.get("value_expr") is not None:
+        leaf_type = _classify_value_expr_local(leaf["value_expr"])
+    elif leaf.get("sources") is not None:
+        leaf_type = ConstraintType.VALUE_WITH_DATAFLOW
+    else:
+        leaf_type = ConstraintType.PROBABILISTIC
+
+    # For =0 ("event never matches"), pick the sharpest primitive set
+    # that captures the full event predicate. Each primitive inverts
+    # its own verdict via `_expects_absence(ast)`. When a guard is
+    # present, guarded_write alone is the sharpest check — its
+    # inverted verdict already says "no guarded write of t was found,"
+    # which is exactly the =0 + guard assertion.
+    negate = _expects_absence(ast)
+    if negate and has_guard:
+        primitive_names: list[str] = []
+    elif negate:
+        primitive_names = _NEGATION_PRIMITIVES_FOR_TYPE.get(leaf_type) or []
+    else:
+        primitive_names = _PRIMITIVES_FOR_TYPE.get(leaf_type) or []
+
+    # Build a per-leaf AST so primitive runners that introspect the AST
+    # (e.g. source_set walking the value_expr) see THIS leaf, not the
+    # whole compound event.
+    leaf_ast = dict(ast)
+    leaf_ast["event"] = leaf
+
+    leaf_checks: list[dict] = []
+    for primitive_name in primitive_names:
+        runner = _PRIMITIVE_RUNNERS.get(primitive_name)
+        if runner is None:
+            continue
+        check = runner(ast=leaf_ast,
+                       action_id=action_id,
+                       target_id=target,
+                       storage_key=storage_key,
+                       dataset_keys=dataset_keys,
+                       db_path=db_path)
+        if check is not None:
+            leaf_checks.append(check)
+
+    # If the condition carries a guard, also run guarded_write per leaf
+    # so the guard verdict combines with the operator (OR aggregates
+    # over leaf-with-guard verdicts, not over guard checks separately).
+    # For =0 this is the ONLY primitive that runs — see the negate+guard
+    # branch above which clears primitive_names.
+    if has_guard:
+        gc = _run_guarded_write(ast=leaf_ast,
+                                action_id=action_id,
+                                target_id=target,
+                                storage_key=storage_key,
+                                dataset_keys=dataset_keys,
+                                db_path=db_path)
+        leaf_checks.append(gc)
+
+    leaf_passed = all(c["passed"] for c in leaf_checks) if leaf_checks else True
+    return {"passed": leaf_passed, "checks": leaf_checks}
+
+
+def _classify_value_expr_local(value_expr: dict) -> "ConstraintType":
+    """Same logic as classifier._classify_value_expr: VALUE vs VALUE_WITH_DATAFLOW
+    depending on whether the value derives from element reads."""
+    if _expr_has_read(value_expr) or _expr_has_increment(value_expr):
+        return ConstraintType.VALUE_WITH_DATAFLOW
+    return ConstraintType.VALUE
+
+
+def _expr_has_increment(node) -> bool:
+    if isinstance(node, dict):
+        if node.get("type") == "IncrementExpr":
+            return True
+        return any(_expr_has_increment(v) for v in node.values())
+    if isinstance(node, list):
+        return any(_expr_has_increment(item) for item in node)
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -503,6 +725,24 @@ def _run_persist_check(ast: dict, db_path: str) -> dict:
         storage_key=storage_key, dataset_keys=dataset_keys, db_path=db_path)
     save_check["name"] = "persist_save"
 
+    # For `persist(s) = 0` — "this storage entry is never persisted by this
+    # action" — only the save side carries a meaningful verdict. The restore
+    # side asks a question about page-load behaviour that the =0 assertion
+    # doesn't constrain ("never persist" says nothing about whether a load
+    # handler reads the key), so running it would tank an otherwise-correct
+    # verdict whenever the app has no restore wiring. _run_path_exists
+    # already inverts for =0, so save_check.passed already means "no save
+    # was reachable" — exactly the =0 assertion.
+    if _expects_absence(ast):
+        checks = [save_check]
+        if save_check["passed"]:
+            return {"result": "PASSED", "reason": None, "checks": checks}
+        return {
+            "result":  "FLAGGED",
+            "reason":  save_check.get("reason") or "",
+            "checks":  checks,
+        }
+
     restore_rows, restore_query = _run_template(
         "page_load_restores.ql",
         db_path=db_path,
@@ -583,6 +823,19 @@ def _run_literal_value(*, ast, action_id, target_id, storage_key, dataset_keys, 
                                      storage_key=storage_key,
                                      dataset_keys=dataset_keys,
                                      literal=_ql_escape(str(lit)))
+    if _expects_absence(ast):
+        passed = len(rows) == 0
+        return {
+            "name":     "no_literal_value",
+            "action":   action_id,
+            "target":   target_id,
+            "passed":   passed,
+            "evidence": rows,
+            "reason":   None if passed
+                        else f"handler({action_id}) DOES write literal {lit!r} to "
+                             f"{target_id}, but the constraint says it never should",
+            "query":    query_text,
+        }
     passed = len(rows) > 0
     return {
         "name":     "literal_value",
@@ -644,14 +897,41 @@ def _run_source_set(*, ast, action_id, target_id, storage_key, dataset_keys, db_
         if not sid:
             continue
         actual.add(key_to_entry.get(sid, sid))
+    # Verdict semantics:
+    #   Explicit set form `w(target, sources={...})` → SET EQUALITY
+    #     (the user wrote an exact set; extras AND missing both fail).
+    #   Arithmetic form `w(target, r(b) + r(c))`     → SUBSET
+    #     (the listed reads must all flow in; extras allowed — matches
+    #      how users naturally write "derives from b and c").
     missing = sorted(expected - actual)
     extra   = sorted(actual - expected)
-    passed  = not missing and not extra
+    if explicit_form:
+        passed = not missing and not extra
+    else:
+        passed = not missing
     parts = []
     if missing:
         parts.append(f"value should derive from {missing} but no flow was found")
-    if extra:
+    if extra and explicit_form:
         parts.append(f"value also derives from unexpected element(s) {extra}")
+    if _expects_absence(ast):
+        # The matching event ("write of t whose value derives from the
+        # expected sources") must NOT occur. Inverted verdict: pass iff
+        # the actual flow does NOT satisfy the expected source pattern
+        # (some expected source missing, or — for explicit form — extras
+        # break the equality). Covers "no write at all" too (actual=∅).
+        return {
+            "name":     "no_source_set",
+            "action":   action_id,
+            "target":   target_id,
+            "passed":   not passed,
+            "evidence": rows,
+            "reason":   None if not passed
+                        else f"value at write({target_id}) DOES derive from "
+                             f"the expected source pattern in handler({action_id}), "
+                             f"but the constraint says it never should",
+            "query":    query_text,
+        }
     return {
         "name":     "source_set",
         "action":   action_id,
@@ -677,6 +957,20 @@ def _run_api_result_taint(*, ast, action_id, target_id, storage_key, dataset_key
                                      target_id=target_id,
                                      storage_key=storage_key,
                                      dataset_keys=dataset_keys)
+    if _expects_absence(ast):
+        passed = len(rows) == 0
+        return {
+            "name":     "no_api_result_taint",
+            "action":   action_id,
+            "target":   target_id,
+            "passed":   passed,
+            "evidence": rows,
+            "reason":   None if passed
+                        else f"an API response DOES flow into write({target_id}) "
+                             f"in handler({action_id}), but the constraint says "
+                             f"it never should",
+            "query":    query_text,
+        }
     passed = len(rows) > 0
     return {
         "name":     "api_result_taint",
@@ -706,6 +1000,20 @@ def _run_self_increment(*, ast, action_id, target_id, storage_key, dataset_keys,
                                      target_id=target_id,
                                      storage_key=storage_key,
                                      dataset_keys=dataset_keys)
+    if _expects_absence(ast):
+        passed = len(rows) == 0
+        return {
+            "name":     "no_self_increment",
+            "action":   action_id,
+            "target":   target_id,
+            "passed":   passed,
+            "evidence": rows,
+            "reason":   None if passed
+                        else f"write({target_id}) in handler({action_id}) DOES "
+                             f"add a literal constant to itself, but the "
+                             f"constraint says it never should",
+            "query":    query_text,
+        }
     passed = len(rows) > 0
     return {
         "name":     "self_increment",
@@ -797,6 +1105,20 @@ def _run_guarded_write(*, ast, action_id, target_id, storage_key, dataset_keys, 
                                      storage_key=storage_key,
                                      dataset_keys=dataset_keys,
                                      guard_id=guard_id)
+    if _expects_absence(ast):
+        passed = len(rows) == 0
+        return {
+            "name":     "no_guarded_write",
+            "action":   action_id,
+            "target":   target_id,
+            "passed":   passed,
+            "evidence": rows,
+            "reason":   None if passed
+                        else f"write({target_id}) in handler({action_id}) IS gated by "
+                             f"an if-statement reading {guard_id}, but the constraint "
+                             f"says this guarded write never happens",
+            "query":    query_text,
+        }
     passed = len(rows) > 0
     return {
         "name":     "guarded_write",
@@ -1057,8 +1379,12 @@ def _expr_has_read(node: Any) -> bool:
 
 
 def _contains_api_ref(ast: Any) -> bool:
+    """True if the AST references status(api), which Stage 1 does not
+    support. CallEvent is intentionally NOT included — CallEvents at the
+    top level are handled by _run_api_call_check, and CallEvents inside
+    a CompoundEvent are handled by _evaluate_event_leaf."""
     if isinstance(ast, dict):
-        if ast.get("type") in ("CallEvent", "StatusExpr"):
+        if ast.get("type") == "StatusExpr":
             return True
         return any(_contains_api_ref(v) for v in ast.values())
     if isinstance(ast, list):

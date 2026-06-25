@@ -16,6 +16,7 @@ from src.verifier import check_probabilistic
 from src.tracer import generate_traces_for_constraint
 from src.static_checks import stage1_check
 from .serializer import serialize_tokens, serialize_ast, serialize_constraint_type
+from .demo_backend import set_app_dir, get_app_dir
 
 # Names of ConstraintType variants whose checker is wired end-to-end.
 _IMPLEMENTED: set[str] = {"PROBABILISTIC"}
@@ -155,7 +156,18 @@ def codeql_rebuild():
     if proc.returncode != 0:
         last_err = (proc.stderr.strip().splitlines() or ["codeql CLI failed."])[-1]
         return jsonify({"success": False, "error": last_err, "stderr": proc.stderr}), 500
-    return jsonify({"success": True, "db_path": db_path})
+
+    # Build succeeded — make this the app /run/ serves so the iframe /
+    # preview and the freshly-built DB stay in sync.
+    try:
+        active = set_app_dir(source_dir)
+    except FileNotFoundError as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    return jsonify({
+        "success": True,
+        "db_path": db_path,
+        "app_dir": str(active),
+    })
 
 
 @bp.post("/verify")

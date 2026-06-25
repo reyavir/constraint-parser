@@ -162,7 +162,7 @@
           spellcheck="false"
           autocomplete="off"
         />
-        <button id="rebuild-db-btn" class="btn-cancel">Rebuild DB</button>
+        <button id="rebuild-db-btn" class="btn-cancel">Build / rebuild DB</button>
       </div>
       <div id="stage1-result" class="stage1-result hidden"></div>
     </div>
@@ -262,6 +262,43 @@
       </div>
 
       <div id="scan-result" class="inject-result hidden"></div>
+    </div>
+
+    <!-- Step 2: build the CodeQL database for static checks -->
+    <div class="card">
+      <div class="card-title">Build CodeQL database</div>
+      <p class="mapping-intro">
+        Indexes the same source into a CodeQL database so Step 6 (Static
+        Analysis) can run queries against it. Required before any static
+        check; safe to re-run after you change the source. Building also
+        switches <code>/run/</code> to serve this source so the constraint
+        builder iframe and the new DB stay in sync.
+      </p>
+
+      <div class="input-row" style="margin-top:1rem;">
+        <input
+          id="mapping-db-src-input"
+          class="constraint-input"
+          type="text"
+          value="./test-app"
+          placeholder="Path to source (e.g. ./test-app)"
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <input
+          id="mapping-db-path-input"
+          class="constraint-input"
+          type="text"
+          value="./codeql-db"
+          placeholder="DB output path (e.g. ./codeql-db)"
+          spellcheck="false"
+          autocomplete="off"
+          style="max-width: 220px;"
+        />
+        <button id="mapping-build-db-btn" class="btn-parse">Build / rebuild DB</button>
+      </div>
+
+      <div id="mapping-build-db-result" class="inject-result hidden"></div>
     </div>
 
     <!-- Mapping error -->
