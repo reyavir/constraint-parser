@@ -359,6 +359,33 @@ def _evaluate_event_leaf(leaf: dict, *, ast: dict, action_id: str,
     """
     ntype = leaf.get("type")
 
+    # Counterfactual (¬A on condition side) is detected once from the
+    # top-level ast — the walker keeps the same ast for every leaf, so
+    # this stays consistent across recursion.
+    is_counterfactual = bool((ast.get("condition") or {}).get("negated"))
+
+    # CallEvent / PersistEvent leaves under counterfactual don't have a
+    # well-defined semantics in the current implementation — the composite
+    # runners (_run_api_call_check, _run_persist_check) don't consult the
+    # counterfactual flag. SKIP with a clear reason instead of silently
+    # producing a wrong verdict.
+    if is_counterfactual and ntype in ("CallEvent", "PersistEvent"):
+        return {
+            "passed": False,
+            "checks": [{
+                "name":     "counterfactual_unsupported_leaf",
+                "action":   action_id,
+                "target":   leaf.get("api") or leaf.get("element"),
+                "passed":   False,
+                "evidence": [],
+                "reason":   (f"counterfactual (¬A) constraints with {ntype!r} "
+                             f"leaves are not supported — only WriteEvent leaves "
+                             f"can appear under ¬A. Consider splitting into "
+                             f"separate constraints."),
+                "query":    "",
+            }],
+        }
+
     # CallEvent leaf — route to the same machinery as a top-level call
     # constraint, but with a per-leaf AST so the runner sees just this
     # CallEvent as ast.event.
@@ -425,15 +452,16 @@ def _evaluate_event_leaf(leaf: dict, *, ast: dict, action_id: str,
     else:
         leaf_type = ConstraintType.PROBABILISTIC
 
-    # For =0 ("event never matches"), pick the sharpest primitive set
-    # that captures the full event predicate. Each primitive inverts
-    # its own verdict via `_expects_absence(ast)`. When a guard is
-    # present, guarded_write alone is the sharpest check — its
-    # inverted verdict already says "no guarded write of t was found,"
-    # which is exactly the =0 + guard assertion.
+    # Counterfactual (¬A) overrides the shape-based dispatch: every
+    # WriteEvent leaf runs only no_other_handlers, asking whether any
+    # handler other than the named action reaches a write to this leaf's
+    # target. The walker's AND/OR/XOR/NOT combining then aggregates
+    # per-leaf verdicts as usual.
     negate = _expects_absence(ast)
-    if negate and has_guard:
-        primitive_names: list[str] = []
+    if is_counterfactual:
+        primitive_names: list[str] = ["no_other_handlers"]
+    elif negate and has_guard:
+        primitive_names = []
     elif negate:
         primitive_names = _NEGATION_PRIMITIVES_FOR_TYPE.get(leaf_type) or []
     else:
@@ -463,8 +491,9 @@ def _evaluate_event_leaf(leaf: dict, *, ast: dict, action_id: str,
     # so the guard verdict combines with the operator (OR aggregates
     # over leaf-with-guard verdicts, not over guard checks separately).
     # For =0 this is the ONLY primitive that runs — see the negate+guard
-    # branch above which clears primitive_names.
-    if has_guard:
+    # branch above which clears primitive_names. Skipped for counterfactual
+    # because ¬A + guard doesn't have a well-defined semantics yet.
+    if has_guard and not is_counterfactual:
         gc = _run_guarded_write(ast=leaf_ast,
                                 action_id=action_id,
                                 target_id=target,

@@ -154,37 +154,6 @@ _TYPE_META: dict[ConstraintType, dict] = {
         ),
         "checker": "check_probabilistic(params, traces)  # XOR evaluated per trace",
     },
-    ConstraintType.ORDER: {
-        "label": "Order",
-        "color": "indigo",
-        "summary": "Sequenced trace log",
-        "detail": (
-            "Each write is logged with a global sequence number. In traces where both "
-            "writes occur, verify seq(first_write) < seq(second_write)."
-        ),
-        "checker": "check_order(parsed, traces)",
-    },
-    ConstraintType.GUARD: {
-        "label": "Guard",
-        "color": "cyan",
-        "summary": "Value assertion on event side",
-        "detail": (
-            "The event side of P(...) is a Guard expression — an assertion about "
-            "a value, e.g. P(r(cart) = 0 | A(clearBtn)) or P(len(r(a)) = len(r(b)) | A). "
-            "Verified at runtime by reading the relevant values after the action fires."
-        ),
-        "checker": "check_guard(parsed, traces)",
-    },
-    ConstraintType.STATIC: {
-        "label": "Static",
-        "color": "gray",
-        "summary": "CodeQL static analysis",
-        "detail": (
-            "No runtime traces required. Run a CodeQL query over the codebase to check "
-            "this structural property (e.g. no hardcoded literals, errors surfaced to UI)."
-        ),
-        "checker": "check_static(parsed, codeql_results)",
-    },
 }
 
 
