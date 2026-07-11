@@ -54,6 +54,7 @@
     status:       null,     // { kind: 'error' | 'info', text }
     selecting:    false,    // selection mode active?
     pickingKind:  null,     // 'action' | 'target' | null — which button is in pick mode
+    visualizingIdx: null,   // index of saved constraint currently visualized (arrows on page), or null
     confirmClear: false,    // "Clear all" two-click confirmation latch
     apis:         [],       // [{ id, endpoint, method, file, line }]
     storage:      [],       // [{ id, area, key, ops, file, line }]
@@ -416,6 +417,21 @@
         transition: outline-color 0.08s, background-color 0.08s !important;
       }
 
+      /* Visualization overlay — highlights action + target elements while
+         a saved constraint is being visualized. */
+      .__cb_viz_hl {
+        outline-offset: 2px !important;
+        transition: outline-color 0.1s, background-color 0.1s !important;
+      }
+      .__cb_viz_hl._action {
+        outline: 3px solid #16a34a !important;
+        background-color: rgba(22,163,74,0.12) !important;
+      }
+      .__cb_viz_hl._target {
+        outline: 3px solid #1e3a8a !important;
+        background-color: rgba(30,58,138,0.12) !important;
+      }
+
       /* ── Detected APIs / Storage lanes ─────────────────────────────── */
       #${PANEL_ID} .__cb_lane_row {
         display: flex;
@@ -697,11 +713,19 @@
     }
     const items = state.saved.map((c, i) => {
       const labelLine = c.targets.map(t => t.label).join(', ');
+      const isViz = state.visualizingIdx === i;
       return `
         <div class="__cb_saved_item">
           <div class="__cb_saved_head">
             <span class="__cb_saved_idx">#${i + 1}</span>
-            <span class="_remove" data-action="remove_saved" data-idx="${i}" title="Delete">×</span>
+            <span style="display:flex; gap:6px; align-items:center;">
+              <button class="__cb_btn _small${isViz ? ' _picking' : ''}"
+                      data-action="visualize" data-idx="${i}"
+                      title="Show arrows from action to targets on the page">
+                ${isViz ? 'Hide' : 'Show'}
+              </button>
+              <span class="_remove" data-action="remove_saved" data-idx="${i}" title="Delete">×</span>
+            </span>
           </div>
           <div class="__cb_saved_formula">${escapeHtml(c.constraint)}</div>
           <div class="__cb_saved_labels">action: ${escapeHtml(c.action.label)} → ${escapeHtml(labelLine)}</div>
@@ -869,7 +893,24 @@
         // Handled in onPanelChange — capture-phase click on the <select> would
         // arrive here too, but ignore it to avoid double-handling.
         break;
+      case 'visualize': {
+        const idx = Number(target.dataset.idx);
+        if (state.visualizingIdx === idx) {
+          clearVisualization();
+          state.visualizingIdx = null;
+        } else {
+          clearVisualization();
+          state.visualizingIdx = idx;
+          drawVisualization(state.saved[idx]);
+        }
+        render();
+        break;
+      }
       case 'remove_saved':
+        if (state.visualizingIdx === Number(target.dataset.idx)) {
+          clearVisualization();
+          state.visualizingIdx = null;
+        }
         state.saved.splice(Number(target.dataset.idx), 1);
         persist();
         render();
@@ -1031,6 +1072,117 @@
     document.addEventListener('click',     onClick,     true);
     document.addEventListener('keydown',   onKey,       true);
     selectionContext = { cleanup };
+  }
+
+  // ── Visualization (arrows from action to targets) ─────────────────────
+  const VIZ_LAYER_ID = '__cb_viz_layer';
+  const VIZ_HL_CLASS = '__cb_viz_hl';
+
+  function drawVisualization(saved) {
+    clearVisualization();
+    if (!saved) return;
+
+    // Resolve the action + target DOM elements.
+    const actionEl = document.getElementById(saved.action.id);
+    if (!actionEl) return;
+    const targetEls = saved.targets
+      .map(t => ({ el: document.getElementById(t.id), meta: t }))
+      .filter(x => x.el);
+
+    // Highlight the action (green) and targets (blue), skipping any that
+    // are inside the panel itself.
+    if (!panel.contains(actionEl)) {
+      actionEl.classList.add(VIZ_HL_CLASS, '_action');
+    }
+    targetEls.forEach(({ el }) => {
+      if (!panel.contains(el)) el.classList.add(VIZ_HL_CLASS, '_target');
+    });
+
+    // Full-viewport SVG layer, pointer-events off so it doesn't block clicks.
+    const svgns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgns, 'svg');
+    svg.id = VIZ_LAYER_ID;
+    Object.assign(svg.style, {
+      position: 'fixed', top: '0', left: '0',
+      width: '100vw', height: '100vh',
+      pointerEvents: 'none', zIndex: '999998',
+      overflow: 'visible',
+    });
+
+    // Arrowhead marker for the line ends.
+    const defs = document.createElementNS(svgns, 'defs');
+    const marker = document.createElementNS(svgns, 'marker');
+    marker.setAttribute('id', '__cb_viz_arrow');
+    marker.setAttribute('viewBox', '0 0 10 10');
+    marker.setAttribute('refX', '9');
+    marker.setAttribute('refY', '5');
+    marker.setAttribute('markerWidth', '8');
+    marker.setAttribute('markerHeight', '8');
+    marker.setAttribute('orient', 'auto-start-reverse');
+    const path = document.createElementNS(svgns, 'path');
+    path.setAttribute('d', 'M0,0 L10,5 L0,10 z');
+    path.setAttribute('fill', '#1e3a8a');
+    marker.appendChild(path);
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+
+    // One line from action center → each target center.
+    const actionRect = actionEl.getBoundingClientRect();
+    const ax = actionRect.left + actionRect.width  / 2;
+    const ay = actionRect.top  + actionRect.height / 2;
+
+    targetEls.forEach(({ el, meta }) => {
+      const r = el.getBoundingClientRect();
+      const tx = r.left + r.width  / 2;
+      const ty = r.top  + r.height / 2;
+      const line = document.createElementNS(svgns, 'line');
+      line.setAttribute('x1', ax); line.setAttribute('y1', ay);
+      line.setAttribute('x2', tx); line.setAttribute('y2', ty);
+      line.setAttribute('stroke', '#1e3a8a');
+      line.setAttribute('stroke-width', '2');
+      line.setAttribute('stroke-dasharray', '6,4');
+      line.setAttribute('marker-end', 'url(#__cb_viz_arrow)');
+      svg.appendChild(line);
+
+      // Optional midpoint label with the target's op (AND / OR / XOR / NOT).
+      if (meta.op) {
+        const mx = (ax + tx) / 2, my = (ay + ty) / 2;
+        const label = document.createElementNS(svgns, 'text');
+        label.setAttribute('x', mx);
+        label.setAttribute('y', my - 6);
+        label.setAttribute('font-size', '11');
+        label.setAttribute('font-family', 'ui-monospace, Menlo, monospace');
+        label.setAttribute('font-weight', '600');
+        label.setAttribute('fill', '#1e3a8a');
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('paint-order', 'stroke');
+        label.setAttribute('stroke', '#ffffff');
+        label.setAttribute('stroke-width', '3');
+        label.textContent = meta.op;
+        svg.appendChild(label);
+      }
+    });
+
+    document.body.appendChild(svg);
+
+    // Redraw on scroll/resize so the arrows follow the elements.
+    const redraw = () => { if (state.visualizingIdx !== null) drawVisualization(saved); };
+    window.__cb_viz_redraw = redraw;
+    window.addEventListener('scroll',  redraw, true);
+    window.addEventListener('resize',  redraw);
+  }
+
+  function clearVisualization() {
+    const svg = document.getElementById(VIZ_LAYER_ID);
+    if (svg) svg.remove();
+    document.querySelectorAll('.' + VIZ_HL_CLASS).forEach(el => {
+      el.classList.remove(VIZ_HL_CLASS, '_action', '_target');
+    });
+    if (window.__cb_viz_redraw) {
+      window.removeEventListener('scroll',  window.__cb_viz_redraw, true);
+      window.removeEventListener('resize',  window.__cb_viz_redraw);
+      window.__cb_viz_redraw = null;
+    }
   }
 
   // ── Drag ─────────────────────────────────────────────────────────────

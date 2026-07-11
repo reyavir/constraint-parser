@@ -1,629 +1,793 @@
 {
   "elements": {
-    "brand-name": {
-      "label": "Mailbox",
+    "siteHeader": {
+      "label": "VOLT . TECH ESSENTIALS Items: ",
+      "tag": "header",
+      "kind": "component",
+      "file": "index.html",
+      "line": 421
+    },
+    "brand": {
+      "label": "VOLT . TECH ESSENTIALS",
       "tag": "div",
       "kind": "component",
       "file": "index.html",
-      "line": 214
+      "line": 422
     },
-    "search-input": {
-      "label": "",
-      "tag": "input",
-      "kind": "action",
-      "file": "index.html",
-      "line": 216
-    },
-    "search-clear-btn": {
-      "label": "Clear",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 217
-    },
-    "search-status": {
-      "label": "all",
+    "cv_0001": {
+      "label": "TECH ESSENTIALS",
       "tag": "span",
       "kind": "component",
       "file": "index.html",
-      "line": 218
+      "line": 422
     },
-    "total-unread-count": {
-      "label": "3",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 221
-    },
-    "mark-all-read-btn": {
-      "label": "Mark all read",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 222
-    },
-    "compose-btn": {
-      "label": "+ Compose",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 223
-    },
-    "folder-inbox-row": {
-      "label": "\ud83d\udce5 Inbox 3",
+    "cartSummary": {
+      "label": "Items: 0 $0 CART 0",
       "tag": "div",
       "kind": "component",
       "file": "index.html",
-      "line": 232
+      "line": 423
     },
-    "folder-inbox-btn": {
-      "label": "Inbox",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 234
-    },
-    "folder-inbox-count": {
-      "label": "3",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 235
-    },
-    "folder-sent-row": {
-      "label": "\ud83d\udce4 Sent 12",
+    "cartSummaryLines": {
+      "label": "Items: 0 $0",
       "tag": "div",
       "kind": "component",
       "file": "index.html",
-      "line": 237
+      "line": 424
     },
-    "folder-sent-btn": {
-      "label": "Sent",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 239
-    },
-    "folder-sent-count": {
-      "label": "12",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 240
-    },
-    "folder-drafts-row": {
-      "label": "\ud83d\udcdd Drafts 1",
+    "cartCountLabel": {
+      "label": "Items: 0",
       "tag": "div",
       "kind": "component",
       "file": "index.html",
-      "line": 242
+      "line": 425
     },
-    "folder-drafts-btn": {
-      "label": "Drafts",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 244
-    },
-    "folder-drafts-count": {
-      "label": "1",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 245
-    },
-    "folder-spam-row": {
-      "label": "\u26a0 Spam 0",
-      "tag": "div",
-      "kind": "component",
-      "file": "index.html",
-      "line": 247
-    },
-    "folder-spam-btn": {
-      "label": "Spam",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 249
-    },
-    "folder-spam-count": {
+    "cartCountInline": {
       "label": "0",
       "tag": "span",
       "kind": "component",
       "file": "index.html",
-      "line": 250
+      "line": 425
     },
-    "folder-trash-row": {
-      "label": "\ud83d\uddd1 Trash 2",
+    "cartTotalInline": {
+      "label": "$0",
       "tag": "div",
       "kind": "component",
       "file": "index.html",
-      "line": 252
+      "line": 426
     },
-    "folder-trash-btn": {
-      "label": "Trash",
+    "cartToggle": {
+      "label": "CART 0",
       "tag": "button",
       "kind": "action",
       "file": "index.html",
-      "line": 254
+      "line": 428
     },
-    "folder-trash-count": {
-      "label": "2",
+    "cartCount": {
+      "label": "0",
       "tag": "span",
       "kind": "component",
       "file": "index.html",
-      "line": 255
+      "line": 430
     },
-    "label-work-btn": {
-      "label": "Work",
+    "hero": {
+      "label": "Gear that keeps up with you. F",
+      "tag": "section",
+      "kind": "component",
+      "file": "index.html",
+      "line": 434
+    },
+    "heroTitle": {
+      "label": "Gear that keeps up with you.",
+      "tag": "h1",
+      "kind": "component",
+      "file": "index.html",
+      "line": 435
+    },
+    "heroSubtitle": {
+      "label": "Four pieces. Zero clutter. Eve",
+      "tag": "p",
+      "kind": "component",
+      "file": "index.html",
+      "line": 436
+    },
+    "toolbar": {
+      "label": "All Power Audio Compute Apply ",
+      "tag": "section",
+      "kind": "component",
+      "file": "index.html",
+      "line": 438
+    },
+    "searchWrap": {
+      "label": "",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 439
+    },
+    "searchInput": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
+      "file": "index.html",
+      "line": 440
+    },
+    "filterButtons": {
+      "label": "All Power Audio Compute",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 442
+    },
+    "filterAll": {
+      "label": "All",
       "tag": "button",
       "kind": "action",
       "file": "index.html",
-      "line": 262
+      "line": 443,
+      "data_attrs": [
+        "cat"
+      ]
     },
-    "label-work-count": {
-      "label": "5",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 263
-    },
-    "label-personal-btn": {
-      "label": "Personal",
+    "filterPower": {
+      "label": "Power",
       "tag": "button",
       "kind": "action",
       "file": "index.html",
-      "line": 267
+      "line": 444,
+      "data_attrs": [
+        "cat"
+      ]
     },
-    "label-personal-count": {
-      "label": "2",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 268
-    },
-    "label-important-btn": {
-      "label": "Important",
+    "filterAudio": {
+      "label": "Audio",
       "tag": "button",
       "kind": "action",
       "file": "index.html",
-      "line": 272
+      "line": 445,
+      "data_attrs": [
+        "cat"
+      ]
     },
-    "label-important-count": {
-      "label": "1",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 273
-    },
-    "active-folder-name": {
-      "label": "Inbox",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 280
-    },
-    "active-label-name": {
-      "label": "none",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 281
-    },
-    "msg-1-row": {
-      "label": "\u2606 Open Alice Project kickoff \u2014",
-      "tag": "li",
-      "kind": "component",
-      "file": "index.html",
-      "line": 285
-    },
-    "star-1-btn": {
-      "label": "\u2606",
+    "filterCompute": {
+      "label": "Compute",
       "tag": "button",
       "kind": "action",
       "file": "index.html",
-      "line": 286
+      "line": 446,
+      "data_attrs": [
+        "cat"
+      ]
     },
-    "msg-1-pick": {
-      "label": "Open",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 287
-    },
-    "msg-1-sender": {
-      "label": "Alice",
-      "tag": "span",
+    "promoRow": {
+      "label": "Apply Active promo: \u2014",
+      "tag": "div",
       "kind": "component",
       "file": "index.html",
-      "line": 288
+      "line": 448
     },
-    "msg-1-subject": {
-      "label": "Project kickoff",
-      "tag": "strong",
-      "kind": "component",
+    "promoCodeInput": {
+      "label": "",
+      "tag": "input",
+      "kind": "action",
       "file": "index.html",
-      "line": 290
+      "line": 449
     },
-    "msg-1-snippet": {
-      "label": "\u2014 ready to start Monday",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 291
-    },
-    "archive-1-btn": {
-      "label": "Archive",
+    "applyPromoBtn": {
+      "label": "Apply",
       "tag": "button",
       "kind": "action",
       "file": "index.html",
-      "line": 294
+      "line": 450
     },
-    "mark-read-1-btn": {
-      "label": "Mark read",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 295
-    },
-    "delete-1-btn": {
-      "label": "Delete",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 296
-    },
-    "msg-2-row": {
-      "label": "\u2606 Open Bob Lunch tomorrow? \u2014 L",
-      "tag": "li",
-      "kind": "component",
-      "file": "index.html",
-      "line": 299
-    },
-    "star-2-btn": {
-      "label": "\u2606",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 300
-    },
-    "msg-2-pick": {
-      "label": "Open",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 301
-    },
-    "msg-2-sender": {
-      "label": "Bob",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 302
-    },
-    "msg-2-subject": {
-      "label": "Lunch tomorrow?",
-      "tag": "strong",
-      "kind": "component",
-      "file": "index.html",
-      "line": 304
-    },
-    "msg-2-snippet": {
-      "label": "\u2014 Le Pain at noon",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 305
-    },
-    "archive-2-btn": {
-      "label": "Archive",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 308
-    },
-    "mark-read-2-btn": {
-      "label": "Mark read",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 309
-    },
-    "delete-2-btn": {
-      "label": "Delete",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 310
-    },
-    "msg-3-row": {
-      "label": "\u2606 Open Carol Receipts for Q3 \u2014",
-      "tag": "li",
-      "kind": "component",
-      "file": "index.html",
-      "line": 313
-    },
-    "star-3-btn": {
-      "label": "\u2606",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 314
-    },
-    "msg-3-pick": {
-      "label": "Open",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 315
-    },
-    "msg-3-sender": {
-      "label": "Carol",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 316
-    },
-    "msg-3-subject": {
-      "label": "Receipts for Q3",
-      "tag": "strong",
-      "kind": "component",
-      "file": "index.html",
-      "line": 318
-    },
-    "msg-3-snippet": {
-      "label": "\u2014 forwarded from finance",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 319
-    },
-    "archive-3-btn": {
-      "label": "Archive",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 322
-    },
-    "mark-read-3-btn": {
-      "label": "Mark read",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 323
-    },
-    "delete-3-btn": {
-      "label": "Delete",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 324
-    },
-    "selected-subject": {
-      "label": "(no message)",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 330
-    },
-    "selected-sender": {
+    "appliedPromoDisplay": {
       "label": "\u2014",
       "tag": "span",
       "kind": "component",
       "file": "index.html",
-      "line": 331
+      "line": 451
     },
-    "selected-id": {
-      "label": "none",
-      "tag": "span",
-      "kind": "component",
-      "file": "index.html",
-      "line": 331
-    },
-    "selected-body": {
-      "label": "Pick a message above to view i",
+    "checkoutRow": {
+      "label": "Checkout Last checkout count: ",
       "tag": "div",
       "kind": "component",
       "file": "index.html",
-      "line": 332
+      "line": 453
     },
-    "reply-btn": {
-      "label": "Reply",
+    "checkoutBtn": {
+      "label": "Checkout",
       "tag": "button",
       "kind": "action",
       "file": "index.html",
-      "line": 334
+      "line": 454
     },
-    "forward-btn": {
-      "label": "Forward",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 335
-    },
-    "mark-spam-btn": {
-      "label": "Report spam",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 336
-    },
-    "compose-to": {
-      "label": "",
-      "tag": "input",
-      "kind": "action",
-      "file": "index.html",
-      "line": 344
-    },
-    "compose-subject": {
-      "label": "",
-      "tag": "input",
-      "kind": "action",
-      "file": "index.html",
-      "line": 348
-    },
-    "compose-body": {
-      "label": "",
-      "tag": "textarea",
-      "kind": "action",
-      "file": "index.html",
-      "line": 352
-    },
-    "send-btn": {
-      "label": "Send",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 355
-    },
-    "save-draft-btn": {
-      "label": "Save draft",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 356
-    },
-    "discard-btn": {
-      "label": "Discard",
-      "tag": "button",
-      "kind": "action",
-      "file": "index.html",
-      "line": 357
-    },
-    "compose-status": {
-      "label": "idle",
+    "checkoutSummaryDisplay": {
+      "label": "\u2014",
       "tag": "span",
       "kind": "component",
       "file": "index.html",
-      "line": 358
+      "line": 455
+    },
+    "statusRow": {
+      "label": "Showing 5 \u00b7 filter: all \u00b7 draw",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 457
+    },
+    "visibleCountAmazon": {
+      "label": "5",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 458
+    },
+    "currentFilterDisplay": {
+      "label": "all",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 458
+    },
+    "drawerStatus": {
+      "label": "closed",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 458
+    },
+    "favoritesCount": {
+      "label": "0",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 458
+    },
+    "noResultsMessage": {
+      "label": "",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 458
+    },
+    "productGrid": {
+      "label": "\u2665 \ud83d\udd0c Power 65W GaN Charger $39 ",
+      "tag": "main",
+      "kind": "component",
+      "file": "index.html",
+      "line": 462
+    },
+    "card-charger": {
+      "label": "\u2665 \ud83d\udd0c Power 65W GaN Charger $39 ",
+      "tag": "article",
+      "kind": "component",
+      "file": "index.html",
+      "line": 463,
+      "data_attrs": [
+        "cat",
+        "id",
+        "name"
+      ]
+    },
+    "fav-charger": {
+      "label": "\u2665",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 464,
+      "data_attrs": [
+        "fav"
+      ]
+    },
+    "thumb-charger": {
+      "label": "\ud83d\udd0c",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 465
+    },
+    "cat-charger": {
+      "label": "Power",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 466
+    },
+    "name-charger": {
+      "label": "65W GaN Charger",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 467
+    },
+    "price-charger": {
+      "label": "$39",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 468
+    },
+    "controls-charger": {
+      "label": "\u2212 1 + Add to Cart",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 469
+    },
+    "qty-charger": {
+      "label": "\u2212 1 +",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 470
+    },
+    "qtyminus-charger": {
+      "label": "\u2212",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 471,
+      "data_attrs": [
+        "q",
+        "step"
+      ]
+    },
+    "qtyval-charger": {
+      "label": "1",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 472,
+      "data_attrs": [
+        "qval"
+      ]
+    },
+    "qtyplus-charger": {
+      "label": "+",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 473,
+      "data_attrs": [
+        "q",
+        "step"
+      ]
+    },
+    "add-charger": {
+      "label": "Add to Cart",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 475,
+      "data_attrs": [
+        "add"
+      ]
+    },
+    "card-earbuds": {
+      "label": "\u2665 \ud83c\udfa7 Audio Pulse Earbuds $89 \u2212 ",
+      "tag": "article",
+      "kind": "component",
+      "file": "index.html",
+      "line": 478,
+      "data_attrs": [
+        "cat",
+        "id",
+        "name"
+      ]
+    },
+    "fav-earbuds": {
+      "label": "\u2665",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 479,
+      "data_attrs": [
+        "fav"
+      ]
+    },
+    "thumb-earbuds": {
+      "label": "\ud83c\udfa7",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 480
+    },
+    "cat-earbuds": {
+      "label": "Audio",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 481
+    },
+    "name-earbuds": {
+      "label": "Pulse Earbuds",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 482
+    },
+    "price-earbuds": {
+      "label": "$89",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 483
+    },
+    "controls-earbuds": {
+      "label": "\u2212 1 + Add to Cart",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 484
+    },
+    "qty-earbuds": {
+      "label": "\u2212 1 +",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 485
+    },
+    "qtyminus-earbuds": {
+      "label": "\u2212",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 486,
+      "data_attrs": [
+        "q",
+        "step"
+      ]
+    },
+    "qtyval-earbuds": {
+      "label": "1",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 487,
+      "data_attrs": [
+        "qval"
+      ]
+    },
+    "qtyplus-earbuds": {
+      "label": "+",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 488,
+      "data_attrs": [
+        "q",
+        "step"
+      ]
+    },
+    "add-earbuds": {
+      "label": "Add to Cart",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 490,
+      "data_attrs": [
+        "add"
+      ]
+    },
+    "card-headphone": {
+      "label": "\u2665 \ud83c\udfb5 Audio Studio Headphone $19",
+      "tag": "article",
+      "kind": "component",
+      "file": "index.html",
+      "line": 493,
+      "data_attrs": [
+        "cat",
+        "id",
+        "name"
+      ]
+    },
+    "fav-headphone": {
+      "label": "\u2665",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 494,
+      "data_attrs": [
+        "fav"
+      ]
+    },
+    "thumb-headphone": {
+      "label": "\ud83c\udfb5",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 495
+    },
+    "cat-headphone": {
+      "label": "Audio",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 496
+    },
+    "name-headphone": {
+      "label": "Studio Headphone",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 497
+    },
+    "price-headphone": {
+      "label": "$199",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 498
+    },
+    "controls-headphone": {
+      "label": "\u2212 1 + Add to Cart",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 499
+    },
+    "qty-headphone": {
+      "label": "\u2212 1 +",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 500
+    },
+    "qtyminus-headphone": {
+      "label": "\u2212",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 501,
+      "data_attrs": [
+        "q",
+        "step"
+      ]
+    },
+    "qtyval-headphone": {
+      "label": "1",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 502,
+      "data_attrs": [
+        "qval"
+      ]
+    },
+    "qtyplus-headphone": {
+      "label": "+",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 503,
+      "data_attrs": [
+        "q",
+        "step"
+      ]
+    },
+    "add-headphone": {
+      "label": "Add to Cart",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 505,
+      "data_attrs": [
+        "add"
+      ]
+    },
+    "card-laptop": {
+      "label": "\u2665 \ud83d\udcbb Compute Aero 14 Laptop $12",
+      "tag": "article",
+      "kind": "component",
+      "file": "index.html",
+      "line": 508,
+      "data_attrs": [
+        "cat",
+        "id",
+        "name"
+      ]
+    },
+    "fav-laptop": {
+      "label": "\u2665",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 509,
+      "data_attrs": [
+        "fav"
+      ]
+    },
+    "thumb-laptop": {
+      "label": "\ud83d\udcbb",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 510
+    },
+    "cat-laptop": {
+      "label": "Compute",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 511
+    },
+    "name-laptop": {
+      "label": "Aero 14 Laptop",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 512
+    },
+    "price-laptop": {
+      "label": "$1299",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 513
+    },
+    "controls-laptop": {
+      "label": "\u2212 1 + Add to Cart",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 514
+    },
+    "qty-laptop": {
+      "label": "\u2212 1 +",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 515
+    },
+    "qtyminus-laptop": {
+      "label": "\u2212",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 516,
+      "data_attrs": [
+        "q",
+        "step"
+      ]
+    },
+    "qtyval-laptop": {
+      "label": "1",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 517,
+      "data_attrs": [
+        "qval"
+      ]
+    },
+    "qtyplus-laptop": {
+      "label": "+",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 518,
+      "data_attrs": [
+        "q",
+        "step"
+      ]
+    },
+    "add-laptop": {
+      "label": "Add to Cart",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 520,
+      "data_attrs": [
+        "add"
+      ]
+    },
+    "noResults": {
+      "label": "No products match your search.",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 523
+    },
+    "overlay": {
+      "label": "",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 525
+    },
+    "drawer": {
+      "label": "Your Cart \u00d7 Total $0 Checkout",
+      "tag": "aside",
+      "kind": "component",
+      "file": "index.html",
+      "line": 526
+    },
+    "drawerHead": {
+      "label": "Your Cart \u00d7",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 527
+    },
+    "drawerTitle": {
+      "label": "Your Cart",
+      "tag": "h3",
+      "kind": "component",
+      "file": "index.html",
+      "line": 528
+    },
+    "closeDrawer": {
+      "label": "\u00d7",
+      "tag": "button",
+      "kind": "action",
+      "file": "index.html",
+      "line": 529
+    },
+    "cartItems": {
+      "label": "",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 531
+    },
+    "drawerFoot": {
+      "label": "Total $0 Checkout",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 532
+    },
+    "totalRow": {
+      "label": "Total $0",
+      "tag": "div",
+      "kind": "component",
+      "file": "index.html",
+      "line": 533
+    },
+    "totalLabel": {
+      "label": "Total",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 533
+    },
+    "total": {
+      "label": "$0",
+      "tag": "span",
+      "kind": "component",
+      "file": "index.html",
+      "line": 533
     }
   },
   "apis": {},
   "storage": {
-    "sentCountStorage": {
+    "cartSummaryStorage": {
       "area": "localStorage",
-      "key": "sent-count",
+      "key": "cart-summary",
       "ops": [
         "setItem",
         "getItem"
       ],
-      "file": "app.js",
-      "line": 59
+      "file": "index.html",
+      "line": 670
     },
-    "lastSentStorage": {
+    "promoStorage": {
       "area": "localStorage",
-      "key": "last-sent",
+      "key": "promo",
       "ops": [
         "setItem"
       ],
-      "file": "app.js",
-      "line": 60
+      "file": "index.html",
+      "line": 805
     },
-    "draftsCountStorage": {
+    "checkoutSummaryStorage": {
       "area": "localStorage",
-      "key": "drafts-count",
-      "ops": [
-        "setItem",
-        "getItem"
-      ],
-      "file": "app.js",
-      "line": 74
-    },
-    "composeDraftStorage": {
-      "area": "localStorage",
-      "key": "compose-draft",
-      "ops": [
-        "setItem",
-        "getItem"
-      ],
-      "file": "app.js",
-      "line": 75
-    },
-    "activeFolderStorage": {
-      "area": "localStorage",
-      "key": "active-folder",
-      "ops": [
-        "setItem",
-        "getItem"
-      ],
-      "file": "app.js",
-      "line": 105
-    },
-    "activeLabelStorage": {
-      "area": "localStorage",
-      "key": "active-label",
+      "key": "checkout-summary",
       "ops": [
         "setItem"
       ],
-      "file": "app.js",
-      "line": 127
-    },
-    "selectedIdStorage": {
-      "area": "localStorage",
-      "key": "selected-id",
-      "ops": [
-        "setItem"
-      ],
-      "file": "app.js",
-      "line": 144
-    },
-    "starredStateStorage": {
-      "area": "localStorage",
-      "key": "starred-state",
-      "ops": [
-        "setItem"
-      ],
-      "file": "app.js",
-      "line": 165
-    },
-    "inboxCountStorage": {
-      "area": "localStorage",
-      "key": "inbox-count",
-      "ops": [
-        "setItem",
-        "getItem"
-      ],
-      "file": "app.js",
-      "line": 182
-    },
-    "threadReadStateStorage": {
-      "area": "localStorage",
-      "key": "thread-read-state",
-      "ops": [
-        "setItem"
-      ],
-      "file": "app.js",
-      "line": 200
-    },
-    "readStateStorage": {
-      "area": "localStorage",
-      "key": "read-state",
-      "ops": [
-        "setItem",
-        "getItem"
-      ],
-      "file": "app.js",
-      "line": 205
-    },
-    "trashCountStorage": {
-      "area": "localStorage",
-      "key": "trash-count",
-      "ops": [
-        "setItem",
-        "getItem"
-      ],
-      "file": "app.js",
-      "line": 217
-    },
-    "spamCountStorage": {
-      "area": "localStorage",
-      "key": "spam-count",
-      "ops": [
-        "setItem",
-        "getItem"
-      ],
-      "file": "app.js",
-      "line": 258
+      "file": "index.html",
+      "line": 853
     }
   },
   "selectors": {}

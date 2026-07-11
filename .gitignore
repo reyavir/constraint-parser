@@ -25,3 +25,6 @@ htmlcov/
 # Local user state
 constraints_inbox.json
 *.bak
+
+# Claude Code local settings (contains absolute paths)
+.claude/
