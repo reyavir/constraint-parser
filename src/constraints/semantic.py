@@ -77,11 +77,30 @@ def analyze(ast: dict, mapping: dict | None = None) -> SemanticAnalysisResult:
     _check_probability(ast, issues)
     _check_condition_side(condition, issues)
     _check_event_side(event, issues)
+    _check_counterfactual_scope(ast, issues)
 
     if mapping is not None:
         _check_identifiers(ast, mapping, issues)
 
     return SemanticAnalysisResult(valid=(not issues), issues=issues)
+
+
+def _check_counterfactual_scope(ast: dict, issues: list[SemanticIssue]) -> None:
+    """Counterfactual (¬A on condition) with a guard on the same condition
+    has ambiguous semantics — it would mean 'for every action other than
+    A, when the guard holds, the event fires,' which we haven't committed
+    to. Reject the combination at semantic time rather than silently
+    dropping the guard at dispatch time."""
+    condition = ast.get("condition") or {}
+    if not condition.get("negated"):
+        return
+    if condition.get("guard") is not None:
+        issues.append(SemanticIssue(
+            "E009",
+            "Counterfactual (¬A) with a guard (AND r(g) > ...) is not "
+            "supported — the combined semantics are ambiguous. Either "
+            "drop the guard, or replace ¬A with A(...) if you want the "
+            "guard to apply."))
 
 
 # ---------------------------------------------------------------------------

@@ -139,6 +139,20 @@ predicate writesElementVia(string id, MethodCallExpr call) {
     "setAttribute"
   ] and
   isElementRef(id, call.getReceiver())
+  or
+  exists(PropAccess classListAccess |
+    classListAccess = call.getReceiver() and
+    classListAccess.getPropertyName() = "classList" and
+    isElementRef(id, classListAccess.getBase()) and
+    call.getMethodName() = ["add", "remove", "toggle", "replace"]
+  )
+  or
+  exists(PropAccess styleAccess |
+    styleAccess = call.getReceiver() and
+    styleAccess.getPropertyName() = "style" and
+    isElementRef(id, styleAccess.getBase()) and
+    call.getMethodName() = ["setProperty", "removeProperty"]
+  )
 }
 
 predicate callsDirect(Function caller, Function callee) {

@@ -247,6 +247,22 @@ predicate writesElementVia(string id, MethodCallExpr call) {
     "setAttribute"
   ] and
   isElementRef(id, call.getReceiver())
+  or
+  // classList mutations: `element.classList.{add,remove,toggle,replace}(...)`.
+  exists(PropAccess classListAccess |
+    classListAccess = call.getReceiver() and
+    classListAccess.getPropertyName() = "classList" and
+    isElementRef(id, classListAccess.getBase()) and
+    call.getMethodName() = ["add", "remove", "toggle", "replace"]
+  )
+  or
+  // style property mutations: `element.style.{setProperty,removeProperty}(...)`.
+  exists(PropAccess styleAccess |
+    styleAccess = call.getReceiver() and
+    styleAccess.getPropertyName() = "style" and
+    isElementRef(id, styleAccess.getBase()) and
+    call.getMethodName() = ["setProperty", "removeProperty"]
+  )
 }
 
 /**
@@ -339,43 +355,158 @@ predicate handlerExitBB(Function fn, ReachableBasicBlock bb) {
 // No inter-procedural recursion here — only direct writes count. This
 // breaks the recursive cycle through negation that CodeQL rejects.
 
-predicate nonDirectWritingBB(Function fn, ReachableBasicBlock bb) {
+predicate nonWritingL1(Function fn, ReachableBasicBlock bb) {
   bbInFunction(fn, bb) and not writingBlock(fn, bb)
 }
 
-predicate reachableViaNonDirectWriting(Function fn,
+predicate reachableViaNonWritingL1(Function fn,
                                         ReachableBasicBlock a,
                                         ReachableBasicBlock b) {
-  a = b and nonDirectWritingBB(fn, a)
+  a = b and nonWritingL1(fn, a)
   or
   exists(ReachableBasicBlock mid |
-    nonDirectWritingBB(fn, a) and
+    nonWritingL1(fn, a) and
     mid = a.getASuccessor() and
-    reachableViaNonDirectWriting(fn, mid, b)
+    reachableViaNonWritingL1(fn, mid, b)
   )
 }
 
 /** fn definitely writes the target through direct writes only. */
-predicate definitelyDirectWrites(Function fn) {
+predicate definitelyWritesL1(Function fn) {
   exists(ReachableBasicBlock anyExit | handlerExitBB(fn, anyExit)) and
   not exists(ReachableBasicBlock entry, ReachableBasicBlock exit |
     entry = fn.getEntry().getBasicBlock() and
     handlerExitBB(fn, exit) and
-    reachableViaNonDirectWriting(fn, entry, exit)
+    reachableViaNonWritingL1(fn, entry, exit)
   )
 }
 
-// ── Handler-level check with one level of inter-procedural ─────────────
+// ── Iterative deepening: definitelyWritesL2..L5 ────────────────────────
+// CodeQL disallows negation-through-recursion, so we manually unfold the
+// interprocedural depth. Each level K allows one more call hop than
+// level K−1: definitelyWritesL1 is L1 (intra-procedural only),
+// definitelyWritesL2 allows one call to an L1-writing helper, and so on
+// up to L5. The handler's writing points use L5 semantics, which
+// tolerates write chains up to 5 function calls deep from the handler.
+
+// ── Level 2 ────────────────────────────────────────────────────────────
+predicate writingPointL2(Function fn, ReachableBasicBlock bb) {
+  writingBlock(fn, bb)
+  or
+  exists(Function callee |
+    callsAt(fn, callee, bb) and
+    definitelyWritesL1(callee)
+  )
+}
+
+predicate nonWritingL2(Function fn, ReachableBasicBlock bb) {
+  bbInFunction(fn, bb) and not writingPointL2(fn, bb)
+}
+
+predicate reachableViaNonWritingL2(Function fn,
+                                    ReachableBasicBlock a,
+                                    ReachableBasicBlock b) {
+  a = b and nonWritingL2(fn, a)
+  or
+  exists(ReachableBasicBlock mid |
+    nonWritingL2(fn, a) and
+    mid = a.getASuccessor() and
+    reachableViaNonWritingL2(fn, mid, b)
+  )
+}
+
+predicate definitelyWritesL2(Function fn) {
+  exists(ReachableBasicBlock anyExit | handlerExitBB(fn, anyExit)) and
+  not exists(ReachableBasicBlock entry, ReachableBasicBlock exit |
+    entry = fn.getEntry().getBasicBlock() and
+    handlerExitBB(fn, exit) and
+    reachableViaNonWritingL2(fn, entry, exit)
+  )
+}
+
+// ── Level 3 ────────────────────────────────────────────────────────────
+predicate writingPointL3(Function fn, ReachableBasicBlock bb) {
+  writingBlock(fn, bb)
+  or
+  exists(Function callee |
+    callsAt(fn, callee, bb) and
+    definitelyWritesL2(callee)
+  )
+}
+
+predicate nonWritingL3(Function fn, ReachableBasicBlock bb) {
+  bbInFunction(fn, bb) and not writingPointL3(fn, bb)
+}
+
+predicate reachableViaNonWritingL3(Function fn,
+                                    ReachableBasicBlock a,
+                                    ReachableBasicBlock b) {
+  a = b and nonWritingL3(fn, a)
+  or
+  exists(ReachableBasicBlock mid |
+    nonWritingL3(fn, a) and
+    mid = a.getASuccessor() and
+    reachableViaNonWritingL3(fn, mid, b)
+  )
+}
+
+predicate definitelyWritesL3(Function fn) {
+  exists(ReachableBasicBlock anyExit | handlerExitBB(fn, anyExit)) and
+  not exists(ReachableBasicBlock entry, ReachableBasicBlock exit |
+    entry = fn.getEntry().getBasicBlock() and
+    handlerExitBB(fn, exit) and
+    reachableViaNonWritingL3(fn, entry, exit)
+  )
+}
+
+// ── Level 4 ────────────────────────────────────────────────────────────
+predicate writingPointL4(Function fn, ReachableBasicBlock bb) {
+  writingBlock(fn, bb)
+  or
+  exists(Function callee |
+    callsAt(fn, callee, bb) and
+    definitelyWritesL3(callee)
+  )
+}
+
+predicate nonWritingL4(Function fn, ReachableBasicBlock bb) {
+  bbInFunction(fn, bb) and not writingPointL4(fn, bb)
+}
+
+predicate reachableViaNonWritingL4(Function fn,
+                                    ReachableBasicBlock a,
+                                    ReachableBasicBlock b) {
+  a = b and nonWritingL4(fn, a)
+  or
+  exists(ReachableBasicBlock mid |
+    nonWritingL4(fn, a) and
+    mid = a.getASuccessor() and
+    reachableViaNonWritingL4(fn, mid, b)
+  )
+}
+
+predicate definitelyWritesL4(Function fn) {
+  exists(ReachableBasicBlock anyExit | handlerExitBB(fn, anyExit)) and
+  not exists(ReachableBasicBlock entry, ReachableBasicBlock exit |
+    entry = fn.getEntry().getBasicBlock() and
+    handlerExitBB(fn, exit) and
+    reachableViaNonWritingL4(fn, entry, exit)
+  )
+}
+
+// ── Handler-level check with 5 levels of inter-procedural depth ────────
 // A writing point for the handler is either a direct write OR a call to
-// a function that intra-procedurally definitely-writes. No further
-// recursion needed — depth bounded at one.
+// a function whose paths all reach the target within 4 additional call
+// hops. This means the write can be at most 5 function calls deep from
+// the handler. Chains deeper than that produce false-failure verdicts —
+// bump the ladder above if you need more depth.
 
 predicate writingPointForHandler(Function fn, ReachableBasicBlock bb) {
   writingBlock(fn, bb)
   or
   exists(Function callee |
     callsAt(fn, callee, bb) and
-    definitelyDirectWrites(callee)
+    definitelyWritesL4(callee)
   )
 }
 

@@ -165,7 +165,7 @@ class ASTBuilder(ConstraintVisitor):
         sources    = self.visit(ctx.source_set()) if ctx.source_set() is not None else None
         return _check_required({
             "type":       "WriteEvent",
-            "element":    self.visit(ctx.ui_element()),
+            "element":    self.visit(ctx.identifier()),
             "value_expr": value_expr,
             "sources":    sources,
         })
@@ -173,7 +173,7 @@ class ASTBuilder(ConstraintVisitor):
     def visitUser_action(self, ctx: ConstraintParser.User_actionContext):
         return _check_required({
             "type":    "Action",
-            "element": self.visit(ctx.ui_element()),
+            "element": self.visit(ctx.identifier()),
             "negated": False,
             "guard":   None,
         })
@@ -182,14 +182,14 @@ class ASTBuilder(ConstraintVisitor):
         params = self.visit(ctx.expr()) if ctx.expr() is not None else None
         return _check_required({
             "type":   "CallEvent",
-            "api":    self.visit(ctx.api()),
+            "api":    self.visit(ctx.identifier()),
             "params": params,
         })
 
     def visitPersist_event(self, ctx: ConstraintParser.Persist_eventContext):
         return _check_required({
             "type":    "PersistEvent",
-            "element": self.visit(ctx.ui_element()),
+            "element": self.visit(ctx.identifier()),
         })
 
     def visitSource_set(self, ctx: ConstraintParser.Source_setContext):
@@ -197,11 +197,11 @@ class ASTBuilder(ConstraintVisitor):
         return [self.visit(item) for item in (ctx.source_item() or [])]
 
     def visitSource_item(self, ctx: ConstraintParser.Source_itemContext):
-        # Either `r(ui_element)` or `r(api_result)`. ui_element() returns
+        # Either `r(identifier)` or `r(api_result)`. identifier() returns
         # None for the api_result form, which we encode as the sentinel
         # element name "api_result" — matching ReadExpr's existing shape.
-        if ctx.ui_element() is not None:
-            element = self.visit(ctx.ui_element())
+        if ctx.identifier() is not None:
+            element = self.visit(ctx.identifier())
         else:
             element = "api_result"
         return _check_required({
@@ -256,29 +256,23 @@ class ASTBuilder(ConstraintVisitor):
     def visitAtom_expr(self, ctx: ConstraintParser.Atom_exprContext):
         head = ctx.getChild(0).getText()
         if head == "r(":
-            element = self.visit(ctx.ui_element()) if ctx.ui_element() is not None else "api_result"
+            element = self.visit(ctx.identifier()) if ctx.identifier() is not None else "api_result"
             return _check_required({"type": "ReadExpr", "element": element})
         if head == "len(":
-            element = self.visit(ctx.ui_element()) if ctx.ui_element() is not None else "api_result"
+            element = self.visit(ctx.identifier()) if ctx.identifier() is not None else "api_result"
             return _check_required({"type": "LenExpr", "element": element})
         if head == "status(":
-            return _check_required({"type": "StatusExpr", "api": self.visit(ctx.api())})
+            return _check_required({"type": "StatusExpr", "api": self.visit(ctx.identifier())})
         if head == "f(":
             return _check_required({"type": "FuncExpr", "arg": self.visit(ctx.expr())})
         return self.visit(ctx.literal())
 
     # ── Terminals ────────────────────────────────────────────────────────
 
-    def visitUi_element(self, ctx: ConstraintParser.Ui_elementContext):
+    def visitIdentifier(self, ctx: ConstraintParser.IdentifierContext):
         ident = ctx.IDENTIFIER()
         if ident is None:
-            raise SemanticError("ui_element missing identifier.")
-        return ident.getText()
-
-    def visitApi(self, ctx: ConstraintParser.ApiContext):
-        ident = ctx.IDENTIFIER()
-        if ident is None:
-            raise SemanticError("api missing identifier.")
+            raise SemanticError("identifier missing identifier.")
         return ident.getText()
 
     def visitComparator(self, ctx: ConstraintParser.ComparatorContext):

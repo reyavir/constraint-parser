@@ -11,7 +11,7 @@ prob_constraint
     ;
 
 probability_expr
-    : ('=' | '<' | '>' | '<=' | '>=') NUMBER
+    : '=' NUMBER
     ;
 
 // ── boolean logic ────────
@@ -59,9 +59,9 @@ atom
 //                                          "no element sources" (literal
 //                                          or api-only value).
 write_event
-    : 'w(' ui_element ')'
-    | 'w(' ui_element ',' expr ')'
-    | 'w(' ui_element ',' 'sources=' source_set ')'
+    : 'w(' identifier ')'
+    | 'w(' identifier ',' expr ')'
+    | 'w(' identifier ',' 'sources=' source_set ')'
     ;
 
 source_set
@@ -70,24 +70,24 @@ source_set
     ;
 
 source_item
-    : 'r(' ui_element ')'
+    : 'r(' identifier ')'
     | 'r(' 'api_result' ')'
     ;
 
 user_action
-    : 'A(' ui_element ')'
+    : 'A(' identifier ')'
     ;
 
 system_event
-    : 'call(' api ')'
-    | 'call(' api ',' expr ')'
+    : 'call(' identifier ')'
+    | 'call(' identifier ',' expr ')'
     ;
 
 // `persist(storage_target)` — true iff the action handler writes to the
 // named storage AND a page-load handler reads from that same storage.
 // Sugar for the conjunction of save and restore checks.
 persist_event
-    : 'persist(' ui_element ')'
+    : 'persist(' identifier ')'
     ;
 
 // ── expressions (for values and guards) ──────────────────────────────────────
@@ -113,19 +113,18 @@ factor
     ;
 
 atom_expr
-    : 'r(' ui_element ')'
+    : 'r(' identifier ')'
     | 'r(' 'api_result' ')'
-    | 'len(' 'r(' ui_element ')' ')'
+    | 'len(' 'r(' identifier ')' ')'
     | 'len(' 'r(' 'api_result' ')' ')'
-    | 'status(' api ')'
+    | 'status(' identifier ')'
     | 'f(' expr ')'
     | literal
     ;
 
 // ── terminals ────────────────────────────────────────────────────────────────
 
-ui_element : IDENTIFIER ;
-api        : IDENTIFIER ;
+identifier : IDENTIFIER ;
 comparator : '=' | '!=' | '<' | '>' | '<=' | '>=' ;
 range      : '[' NUMBER ',' NUMBER ']' | 'D' ;
 literal    : NUMBER | STRING | 'null' ;

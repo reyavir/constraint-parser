@@ -104,13 +104,8 @@ class ConstraintVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by ConstraintParser#ui_element.
-    def visitUi_element(self, ctx:ConstraintParser.Ui_elementContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by ConstraintParser#api.
-    def visitApi(self, ctx:ConstraintParser.ApiContext):
+    # Visit a parse tree produced by ConstraintParser#identifier.
+    def visitIdentifier(self, ctx:ConstraintParser.IdentifierContext):
         return self.visitChildren(ctx)
 
 

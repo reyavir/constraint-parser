@@ -53,6 +53,7 @@
     mode:         'build',  // 'build' | 'review'
     status:       null,     // { kind: 'error' | 'info', text }
     selecting:    false,    // selection mode active?
+    pickingKind:  null,     // 'action' | 'target' | null — which button is in pick mode
     confirmClear: false,    // "Clear all" two-click confirmation latch
     apis:         [],       // [{ id, endpoint, method, file, line }]
     storage:      [],       // [{ id, area, key, ops, file, line }]
@@ -341,6 +342,16 @@
       #${PANEL_ID} .__cb_btn._danger:hover { background: #fef2f2; }
       #${PANEL_ID} .__cb_btn:disabled { opacity: .5; cursor: not-allowed; }
       #${PANEL_ID} .__cb_btn._small { padding: 4px 10px; font-size: 12px; }
+      /* Active pick mode — solid green background so it's obvious which
+         slot the user is filling. */
+      #${PANEL_ID} .__cb_btn._picking {
+        background: #16a34a;
+        color: #ffffff;
+        border-color: #16a34a;
+        font-weight: 600;
+        box-shadow: 0 0 0 2px rgba(22,163,74,0.25);
+      }
+      #${PANEL_ID} .__cb_btn._picking:hover { background: #15803d; border-color: #15803d; }
 
       #${PANEL_ID} .__cb_btn_row { display: flex; gap: 6px; }
 
@@ -394,10 +405,15 @@
         margin-top: 4px;
       }
 
-      /* Highlight applied to the user's elements during selection mode */
+      /* Highlight applied to the user's elements during selection mode.
+         Solid green outline + semi-transparent fill so it's very
+         obvious which element is under the cursor. */
       .__cb_highlight {
-        outline: 2px dashed ${HL_COLOR} !important;
+        outline: 3px solid #16a34a !important;
         outline-offset: 2px !important;
+        background-color: rgba(22,163,74,0.15) !important;
+        box-shadow: 0 0 0 4px rgba(22,163,74,0.15) !important;
+        transition: outline-color 0.08s, background-color 0.08s !important;
       }
 
       /* ── Detected APIs / Storage lanes ─────────────────────────────── */
@@ -542,8 +558,10 @@
         <div class="__cb_section_label">When I do this</div>
         ${actionRow}
         <div class="__cb_btn_row" style="margin-top:6px;">
-          <button class="__cb_btn _small" data-action="pick_action" ${selecting ? 'disabled' : ''}>
-            ${a ? 'Replace action' : 'Pick action'}
+          <button class="__cb_btn _small${state.pickingKind === 'action' ? ' _picking' : ''}"
+                  data-action="pick_action"
+                  ${selecting && state.pickingKind !== 'action' ? 'disabled' : ''}>
+            ${state.pickingKind === 'action' ? 'Selecting action…' : (a ? 'Replace action' : 'Pick action')}
           </button>
         </div>
       </div>
@@ -552,7 +570,11 @@
         <div class="__cb_section_label">These should update</div>
         ${targetRows}
         <div class="__cb_btn_row" style="margin-top:6px;">
-          <button class="__cb_btn _small" data-action="pick_target" ${selecting ? 'disabled' : ''}>+ Add target</button>
+          <button class="__cb_btn _small${state.pickingKind === 'target' ? ' _picking' : ''}"
+                  data-action="pick_target"
+                  ${selecting && state.pickingKind !== 'target' ? 'disabled' : ''}>
+            ${state.pickingKind === 'target' ? 'Selecting target…' : '+ Add target'}
+          </button>
         </div>
       </div>
 
@@ -780,7 +802,7 @@
         render();
         break;
       case 'pick_action':
-        startSelection(el => {
+        startSelection('action', el => {
           if (!el) return;                                 // cancelled
           state.action = { id: el.id, label: getDisplayLabel(el) };
           render();
@@ -791,7 +813,7 @@
         render();
         break;
       case 'pick_target':
-        startSelection(el => {
+        startSelection('target', el => {
           if (!el) return;
           if (state.targets.some(t => t.id === el.id)) {
             setStatus('error', `Target ${el.id} is already in the list.`);
@@ -948,9 +970,10 @@
   // ── Selection mode ────────────────────────────────────────────────────
   let selectionContext = null;
 
-  function startSelection(callback) {
+  function startSelection(kind, callback) {
     if (state.selecting) return;
     state.selecting = true;
+    state.pickingKind = kind;   // 'action' | 'target' — drives button highlight
     state.status = { kind: 'info', text: 'Click an element to select it · Esc to cancel.' };
     render();
 
@@ -998,6 +1021,7 @@
       document.removeEventListener('click',     onClick,     true);
       document.removeEventListener('keydown',   onKey,       true);
       state.selecting = false;
+      state.pickingKind = null;
       state.status = null;
       selectionContext = null;
       render();

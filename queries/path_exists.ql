@@ -266,6 +266,24 @@ predicate writesElementVia(string id, MethodCallExpr call) {
     "setAttribute"
   ] and
   isElementRef(id, call.getReceiver())
+  or
+  // classList mutations: `element.classList.{add,remove,toggle,replace}(...)`.
+  // The method's receiver is `element.classList` (a PropAccess); we unwrap
+  // one level and match the base against the element ref.
+  exists(PropAccess classListAccess |
+    classListAccess = call.getReceiver() and
+    classListAccess.getPropertyName() = "classList" and
+    isElementRef(id, classListAccess.getBase()) and
+    call.getMethodName() = ["add", "remove", "toggle", "replace"]
+  )
+  or
+  // style property mutations: `element.style.{setProperty,removeProperty}(...)`.
+  exists(PropAccess styleAccess |
+    styleAccess = call.getReceiver() and
+    styleAccess.getPropertyName() = "style" and
+    isElementRef(id, styleAccess.getBase()) and
+    call.getMethodName() = ["setProperty", "removeProperty"]
+  )
 }
 
 /**

@@ -179,21 +179,12 @@ class ConstraintListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by ConstraintParser#ui_element.
-    def enterUi_element(self, ctx:ConstraintParser.Ui_elementContext):
+    # Enter a parse tree produced by ConstraintParser#identifier.
+    def enterIdentifier(self, ctx:ConstraintParser.IdentifierContext):
         pass
 
-    # Exit a parse tree produced by ConstraintParser#ui_element.
-    def exitUi_element(self, ctx:ConstraintParser.Ui_elementContext):
-        pass
-
-
-    # Enter a parse tree produced by ConstraintParser#api.
-    def enterApi(self, ctx:ConstraintParser.ApiContext):
-        pass
-
-    # Exit a parse tree produced by ConstraintParser#api.
-    def exitApi(self, ctx:ConstraintParser.ApiContext):
+    # Exit a parse tree produced by ConstraintParser#identifier.
+    def exitIdentifier(self, ctx:ConstraintParser.IdentifierContext):
         pass
 
 
